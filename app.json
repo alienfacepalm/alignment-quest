@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Alignment Draft",
+    "slug": "alignment-draft",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.alienfacepalm.allignmentdraft"
+    },
+    "ios": {
+      "bundleIdentifier": "com.alienfacepalm.allignmentdraft"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
