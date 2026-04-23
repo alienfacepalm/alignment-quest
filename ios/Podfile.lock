@@ -1465,6 +1465,75 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
+  - react-native-safe-area-context (5.6.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-safe-area-context/common (= 5.6.2)
+    - react-native-safe-area-context/fabric (= 5.6.2)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-safe-area-context/common (5.6.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-safe-area-context/fabric (5.6.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-safe-area-context/common
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - React-NativeModulesApple (0.83.6):
     - hermes-engine
     - React-callinvoker
@@ -1901,6 +1970,7 @@ DEPENDENCIES:
   - "React-logger (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/logger`)"
   - "React-Mapbuffer (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
+  - "react-native-safe-area-context (from `../node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.83.6_@babel+core@7.29.0_@types+reac_718ab028d733bb177adb5fc45294c411/node_modules/react-native-safe-area-context`)"
   - "React-NativeModulesApple (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
   - "React-networking (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/react/networking`)"
   - "React-oscompat (from `../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/oscompat`)"
@@ -2035,6 +2105,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-safe-area-context:
+    :path: "../node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.83.6_@babel+core@7.29.0_@types+reac_718ab028d733bb177adb5fc45294c411/node_modules/react-native-safe-area-context"
   React-NativeModulesApple:
     :path: "../node_modules/.pnpm/react-native@0.83.6_@babel+core@7.29.0_@types+react@19.2.14_react@19.2.0/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-networking:
@@ -2155,6 +2227,7 @@ SPEC CHECKSUMS:
   React-logger: 8f320ad2007af122573c11ced727bf3ef795c58b
   React-Mapbuffer: b6935d45926a7a230806e70afd0e67d3daa24ae7
   React-microtasksnativemodule: 0698007c05abab165ee02ee8b1f23a9f577f31bd
+  react-native-safe-area-context: 53f796cb6c814661bbe99fbdfd0585d07b996cdd
   React-NativeModulesApple: 9af02ea7a28301aee846322b8ba14eeed9077c2e
   React-networking: 5332952e3074bca9383c3e2c4c1a786243bbf427
   React-oscompat: 05afae2c7689405dbb4f6458110d501d55357980
@@ -2191,6 +2264,6 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: 703a0eb208f7b5e5caaf7d9c9dc08115590e17f4
   Yoga: e41d64347f52d634dd8c2f6bac33f95081959fd3
 
-PODFILE CHECKSUM: 61d2d85c5c76c3acfed75d6ba27366238b19f507
+PODFILE CHECKSUM: b2ba290a08fc06c5de2049b62a5fe5e1f657543e
 
 COCOAPODS: 1.16.2

@@ -21,6 +21,16 @@ const generationSteps = ["Resolving cast", "Judging alignments", "Preparing card
 const columnLabels = ["Lawful", "Neutral", "Chaotic"] as const;
 const rowLabels = ["Good", "Neutral", "Evil"] as const;
 
+const SCROLL_HORIZONTAL_PAD = 32;
+const BOARD_BODY_GAP = 10;
+
+/** 3×3 keys in row-major order (matches `rowLabels` / `columnLabels`). */
+const ALIGNMENT_ROWS: AlignmentKey[][] = [
+  ["lawful-good", "neutral-good", "chaotic-good"],
+  ["lawful-neutral", "true-neutral", "chaotic-neutral"],
+  ["lawful-evil", "neutral-evil", "chaotic-evil"],
+];
+
 function App() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -75,6 +85,14 @@ function App() {
     return board.palette.filter((person) => !placedIds.has(person.id));
   }, [board, placements]);
 
+  /** Cards shown in the hand while sorting (full palette when none left in hand, so you can re-pick). */
+  const sortingDeckPeople = useMemo(() => {
+    if (!board || phase !== "sorting") {
+      return [];
+    }
+    return unplacedPeople.length ? unplacedPeople : board.palette;
+  }, [board, phase, unplacedPeople]);
+
   const selectedPerson = selectedPersonId && board ? (peopleById[selectedPersonId] ?? null) : null;
 
   const canSubmit =
@@ -84,6 +102,47 @@ function App() {
 
   const remainingCount = unplacedPeople.length;
   const progressRatio = board ? (board.palette.length - remainingCount) / board.palette.length : 0;
+
+  /** Percent-based flex cells + fixed `gap` overflow on narrow widths; use measured 3×3 rows instead. */
+  const boardLayout = useMemo(() => {
+    const inner = Math.max(0, width - SCROLL_HORIZONTAL_PAD - insets.left - insets.right);
+    const minRow = 38;
+    const maxRow = 62;
+    let cellGap = inner < 300 ? 5 : 8;
+    let cellUpper = Math.floor((inner - BOARD_BODY_GAP - 2 * cellGap - minRow) / 3);
+    let cellLower = Math.ceil((inner - BOARD_BODY_GAP - 2 * cellGap - maxRow) / 3);
+    let cell = Math.min(cellUpper, Math.max(cellLower, 44));
+    if (cellLower > cellUpper) {
+      cellGap = 4;
+      cellUpper = Math.floor((inner - BOARD_BODY_GAP - 2 * cellGap - minRow) / 3);
+      cellLower = Math.ceil((inner - BOARD_BODY_GAP - 2 * cellGap - maxRow) / 3);
+      cell = Math.min(cellUpper, Math.max(cellLower, 40));
+    }
+    const gridWidth = cell * 3 + cellGap * 2;
+    const rowLabelWidth = Math.min(maxRow, Math.max(minRow, inner - BOARD_BODY_GAP - gridWidth));
+    const sigilSize = Math.round(Math.min(isTablet ? 72 : 58, cell * 0.46));
+    return { rowLabelWidth, cell, cellGap, gridWidth, sigilSize };
+  }, [width, insets.left, insets.right, isTablet]);
+
+  const deckFanMetrics = useMemo(() => {
+    const inner = Math.max(0, width - SCROLL_HORIZONTAL_PAD - insets.left - insets.right);
+    const n = Math.max(1, sortingDeckPeople.length);
+    let cardW = Math.min(108, Math.max(76, Math.round(inner * 0.26)));
+    let overlap = Math.floor((inner - cardW - 8) / Math.max(1, n - 1));
+    overlap = Math.max(20, Math.min(48, overlap));
+    let span = cardW + (n - 1) * overlap;
+    if (span > inner && n > 1) {
+      overlap = Math.max(16, Math.floor((inner - cardW - 4) / (n - 1)));
+      span = cardW + (n - 1) * overlap;
+    }
+    if (span > inner) {
+      cardW = Math.max(68, inner - (n - 1) * overlap);
+    }
+    const maxTilt = n <= 1 ? 0 : Math.min(16, 5 + n * 0.9);
+    const sigilSize = Math.round(Math.min(56, cardW * 0.52));
+    const cardBodyMinH = sigilSize + 52;
+    return { inner, cardW, overlap, maxTilt, sigilSize, cardBodyMinH };
+  }, [width, insets.left, insets.right, sortingDeckPeople.length]);
 
   const startQuest = () => {
     setGenerationStep(0);
@@ -276,132 +335,214 @@ function App() {
             {selectedPerson && phase === "sorting" ? (
               <GlassCard style={styles.selectedCard} accentColor={selectedPerson.accent}>
                 <Text style={styles.selectedLabel}>Selected</Text>
-                <Text style={styles.selectedText}>
-                  {selectedPerson.name} — {selectedPerson.role}
-                </Text>
+                <View style={styles.selectedRow}>
+                  <SigilPortrait
+                    personId={selectedPerson.id}
+                    accent={selectedPerson.accent}
+                    size={52}
+                    accessibilityLabel={selectedPerson.name}
+                  />
+                  <Text style={styles.selectedText}>
+                    {selectedPerson.name} — {selectedPerson.role}
+                  </Text>
+                </View>
               </GlassCard>
             ) : null}
 
             <View style={styles.boardWrap}>
               <View style={styles.boardFrame}>
-                <View style={styles.columnHeaderRow}>
-                  <View style={styles.rowLabelSpacer} />
-                  {columnLabels.map((label) => (
-                    <Text key={label} style={styles.axisLabel}>
-                      {label}
-                    </Text>
-                  ))}
-                </View>
-
-                <View style={styles.boardBody}>
-                  <View style={styles.rowLabelColumn}>
-                    {rowLabels.map((label) => (
-                      <Text key={label} style={styles.axisLabel}>
+                <View style={[styles.columnHeaderRow, { paddingLeft: boardLayout.rowLabelWidth + BOARD_BODY_GAP }]}>
+                  <View style={[styles.boardHeaderCells, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
+                    {columnLabels.map((label) => (
+                      <Text key={label} style={[styles.axisLabelColumn, { width: boardLayout.cell }]}>
                         {label}
                       </Text>
                     ))}
                   </View>
+                </View>
 
-                  <View style={styles.gridArea}>
-                    {alignmentOrder.map((alignment) => {
-                      const personId = currentPlacements[alignment];
-                      const person = personId ? peopleById[personId] : null;
-                      const submittedPersonId = submittedPlacements?.[alignment] ?? null;
-                      const guessedCorrectly =
-                        phase === "revealed" && submittedPersonId === board.answerKey[alignment];
+                {ALIGNMENT_ROWS.map((rowAlignments, rowIndex) => (
+                  <View key={rowLabels[rowIndex]} style={[styles.boardBodyRow, { gap: BOARD_BODY_GAP }]}>
+                    <Text
+                      style={[styles.axisLabelRow, { width: boardLayout.rowLabelWidth }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}
+                    >
+                      {rowLabels[rowIndex]}
+                    </Text>
+                    <View style={[styles.boardGridRow, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
+                      {rowAlignments.map((alignment) => {
+                        const personId = currentPlacements[alignment];
+                        const person = personId ? peopleById[personId] : null;
+                        const submittedPersonId = submittedPlacements?.[alignment] ?? null;
+                        const guessedCorrectly =
+                          phase === "revealed" && submittedPersonId === board.answerKey[alignment];
 
+                        return (
+                          <Pressable
+                            key={alignment}
+                            onPress={() => {
+                              if (selectedPersonId && phase === "sorting" && personId === selectedPersonId) {
+                                handleClearCell(alignment);
+                                return;
+                              }
+                              if (selectedPersonId && phase === "sorting") {
+                                handlePlaceSelected(alignment);
+                                return;
+                              }
+                              if (personId) {
+                                handleSelectPerson(personId);
+                              }
+                            }}
+                            style={({ pressed }) => [
+                              styles.boardCell,
+                              { width: boardLayout.cell, height: boardLayout.cell },
+                              person ? styles.boardCellFilled : styles.boardCellEmpty,
+                              phase === "revealed" && submittedPersonId && guessedCorrectly
+                                ? styles.boardCellCorrect
+                                : undefined,
+                              phase === "revealed" && submittedPersonId && !guessedCorrectly
+                                ? styles.boardCellMiss
+                                : undefined,
+                              pressed ? styles.pressed : undefined,
+                            ]}
+                          >
+                            {person ? (
+                              <View style={styles.boardCardFill}>
+                                <SigilPortrait
+                                  personId={person.id}
+                                  accent={person.accent}
+                                  size={boardLayout.sigilSize}
+                                  accessibilityLabel={person.name}
+                                />
+                                <Text style={styles.boardCardName} numberOfLines={2}>
+                                  {person.name}
+                                </Text>
+                                <Text style={styles.boardCardRole} numberOfLines={1}>
+                                  {person.role}
+                                </Text>
+                                {phase === "revealed" ? (
+                                  <Text style={styles.boardCardReveal}>
+                                    {submittedPersonId && guessedCorrectly ? "Match" : "—"}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            ) : (
+                              <View style={styles.boardCellEmptyState}>
+                                <Text style={styles.boardCellPlus}>+</Text>
+                              </View>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {phase === "sorting" ? (
+              <View style={styles.deckSection}>
+                <View style={styles.deckHeaderBlock}>
+                  <Text style={styles.deckTitle}>Deck ({sortingDeckPeople.length})</Text>
+                  <Text style={styles.deckHint}>Tap a name or a fanned card, then tap a cell on the board.</Text>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.deckNameStrip}
+                  contentContainerStyle={styles.deckNameStripContent}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {sortingDeckPeople.map((person) => {
+                    const active = selectedPersonId === person.id;
+                    return (
+                      <Pressable
+                        key={`chip-${person.id}`}
+                        onPress={() => handleSelectPerson(person.id)}
+                        style={({ pressed }) => [
+                          styles.deckNameChip,
+                          { borderColor: active ? person.accent : colors.panelBorder },
+                          active ? { backgroundColor: `${person.accent}18` } : undefined,
+                          pressed ? styles.pressed : undefined,
+                        ]}
+                      >
+                        <Text style={styles.deckNameChipText} numberOfLines={2}>
+                          {person.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={[styles.deckFanOuter, { minHeight: deckFanMetrics.cardBodyMinH + 56 }]}>
+                  <View style={styles.deckFanRow}>
+                    {sortingDeckPeople.map((person, i) => {
+                      const n = sortingDeckPeople.length;
+                      const active = selectedPersonId === person.id;
+                      const mid = (n - 1) / 2;
+                      const t = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
+                      const tilt = t * deckFanMetrics.maxTilt;
+                      const lift = n <= 1 ? 0 : Math.abs(i - mid) * 2.2;
                       return (
                         <Pressable
-                          key={alignment}
-                          onPress={() => {
-                            if (selectedPersonId && phase === "sorting" && personId === selectedPersonId) {
-                              handleClearCell(alignment);
-                              return;
-                            }
-                            if (selectedPersonId && phase === "sorting") {
-                              handlePlaceSelected(alignment);
-                              return;
-                            }
-                            if (personId) {
-                              handleSelectPerson(personId);
-                            }
-                          }}
+                          key={person.id}
+                          onPress={() => handleSelectPerson(person.id)}
                           style={({ pressed }) => [
-                            styles.boardCell,
-                            person ? styles.boardCellFilled : styles.boardCellEmpty,
-                            phase === "revealed" && submittedPersonId && guessedCorrectly
-                              ? styles.boardCellCorrect
-                              : undefined,
-                            phase === "revealed" && submittedPersonId && !guessedCorrectly
-                              ? styles.boardCellMiss
-                              : undefined,
+                            styles.deckCardFan,
+                            shadow.card,
+                            {
+                              width: deckFanMetrics.cardW,
+                              marginLeft: i === 0 ? 0 : -deckFanMetrics.overlap,
+                              zIndex: active ? 200 : i,
+                              minHeight: deckFanMetrics.cardBodyMinH,
+                              borderColor: active ? person.accent : colors.panelBorder,
+                            },
+                            active ? styles.deckCardFanActive : undefined,
+                            {
+                              transform: active
+                                ? [
+                                    { translateY: -18 - lift },
+                                    { rotate: `${tilt}deg` },
+                                    { scale: 1.05 },
+                                  ]
+                                : [{ translateY: -lift }, { rotate: `${tilt}deg` }],
+                            },
                             pressed ? styles.pressed : undefined,
                           ]}
                         >
-                          {person ? (
-                            <View style={styles.boardCardFill}>
-                              <SigilPortrait
-                                monogram={person.monogram}
-                                accent={person.accent}
-                                size={isTablet ? 72 : 56}
-                              />
-                              <Text style={styles.boardCardName}>{person.name}</Text>
-                              <Text style={styles.boardCardRole}>{person.role}</Text>
-                              {phase === "revealed" ? (
-                                <Text style={styles.boardCardReveal}>
-                                  {submittedPersonId && guessedCorrectly ? "Match" : "—"}
-                                </Text>
-                              ) : null}
-                            </View>
-                          ) : (
-                            <View style={styles.boardCellEmptyState}>
-                              <Text style={styles.boardCellPlus}>+</Text>
-                            </View>
-                          )}
+                          <Text style={styles.deckCardFanName} numberOfLines={2}>
+                            {person.name}
+                          </Text>
+                          <Text style={styles.deckCardFanRole} numberOfLines={1}>
+                            {person.role}
+                          </Text>
+                          <View
+                            style={[
+                              styles.deckCardFanArt,
+                              { backgroundColor: `${person.accent}22`, minHeight: deckFanMetrics.sigilSize + 16 },
+                            ]}
+                          >
+                            <SigilPortrait
+                              personId={person.id}
+                              accent={person.accent}
+                              size={deckFanMetrics.sigilSize}
+                              accessibilityLabel={person.name}
+                            />
+                          </View>
                         </Pressable>
                       );
                     })}
                   </View>
                 </View>
               </View>
-            </View>
+            ) : null}
 
             {phase === "sorting" ? (
               <View style={styles.questActions}>
                 <PrimaryButton label="Score" onPress={submitBoard} disabled={!canSubmit} />
-              </View>
-            ) : null}
-
-            {phase === "sorting" ? (
-              <View style={styles.deckSection}>
-                <Text style={styles.deckTitle}>Deck ({board.palette.length})</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.deckScroller}
-                >
-                  {(unplacedPeople.length ? unplacedPeople : board.palette).map((person) => {
-                    const active = selectedPersonId === person.id;
-                    return (
-                      <Pressable
-                        key={person.id}
-                        onPress={() => handleSelectPerson(person.id)}
-                        style={({ pressed }) => [
-                          styles.deckCard,
-                          { borderColor: active ? person.accent : colors.panelBorder },
-                          active ? styles.deckCardActive : undefined,
-                          pressed ? styles.pressed : undefined,
-                        ]}
-                      >
-                        <View style={[styles.deckArt, { backgroundColor: `${person.accent}22` }]}>
-                          <SigilPortrait monogram={person.monogram} accent={person.accent} size={82} />
-                        </View>
-                        <Text style={styles.deckRole}>{person.role}</Text>
-                        <Text style={styles.deckName}>{person.name}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
               </View>
             ) : null}
           </View>
@@ -432,7 +573,16 @@ function App() {
                     accentColor={exact ? colors.good : colors.evil}
                   >
                     <Text style={styles.reconstructionStatus}>{exact ? "OK" : "miss"}</Text>
-                    <Text style={styles.reconstructionEmoji}>{person?.monogram ?? "—"}</Text>
+                    {person ? (
+                      <SigilPortrait
+                        personId={person.id}
+                        accent={person.accent}
+                        size={44}
+                        accessibilityLabel={person.name}
+                      />
+                    ) : (
+                      <Text style={styles.reconstructionEmoji}>—</Text>
+                    )}
                     <Text style={styles.reconstructionLabel}>{getAlignmentLabel(alignment)}</Text>
                   </GlassCard>
                 );
@@ -694,6 +844,11 @@ const styles = StyleSheet.create({
   selectedCard: {
     gap: 6,
   },
+  selectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   selectedLabel: {
     color: colors.brass,
     fontSize: 10,
@@ -702,6 +857,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   selectedText: {
+    flex: 1,
     color: colors.parchment,
     fontSize: 14,
     lineHeight: 20,
@@ -717,38 +873,38 @@ const styles = StyleSheet.create({
   columnHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 68,
   },
-  rowLabelSpacer: {
-    width: 0,
-  },
-  boardBody: {
+  boardHeaderCells: {
     flexDirection: "row",
-    gap: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  rowLabelColumn: {
-    width: 58,
-    justifyContent: "space-between",
-    paddingVertical: 18,
+  boardBodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  axisLabel: {
-    flex: 1,
+  boardGridRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  axisLabelColumn: {
     color: "#7180a2",
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 0.6,
     textAlign: "center",
   },
-  gridArea: {
-    flex: 1,
-    aspectRatio: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+  axisLabelRow: {
+    color: "#7180a2",
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    textAlign: "right",
+    paddingRight: 2,
   },
   boardCell: {
-    width: "31.5%",
-    aspectRatio: 1,
     borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
@@ -807,47 +963,103 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   deckSection: {
-    gap: 10,
-    paddingTop: 4,
+    gap: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(13, 17, 29, 0.55)",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  deckHeaderBlock: {
+    gap: 6,
   },
   deckTitle: {
     color: colors.parchment,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 1.1,
   },
-  deckScroller: {
-    gap: 14,
-    paddingRight: 8,
+  deckHint: {
+    color: colors.parchmentMuted,
+    fontSize: 12,
+    lineHeight: 17,
   },
-  deckCard: {
-    width: 160,
-    borderRadius: 18,
+  deckNameStrip: {
+    minHeight: 56,
+    maxHeight: 92,
+    flexGrow: 0,
+  },
+  deckNameStripContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 4,
+  },
+  deckNameChip: {
+    maxWidth: 160,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: "rgba(13, 17, 29, 0.94)",
-    padding: 10,
-    gap: 6,
+    backgroundColor: "rgba(18, 22, 40, 0.92)",
   },
-  deckCardActive: {
+  deckNameChipText: {
+    color: colors.parchment,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  deckFanOuter: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingTop: 8,
+    paddingBottom: 10,
+    overflow: "visible",
+  },
+  deckFanRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  deckCardFan: {
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: "rgba(13, 17, 29, 0.96)",
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 4,
+  },
+  deckCardFanActive: {
     backgroundColor: "rgba(28, 36, 62, 0.98)",
   },
-  deckArt: {
-    height: 180,
-    borderRadius: 14,
+  deckCardFanName: {
+    color: colors.parchment,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    textAlign: "center",
+  },
+  deckCardFanRole: {
+    color: colors.parchmentMuted,
+    fontSize: 9,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  deckCardFanArt: {
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-  },
-  deckRole: {
-    color: colors.parchmentMuted,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  deckName: {
-    color: colors.parchment,
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: "900",
+    marginTop: 2,
   },
   resultTitle: {
     color: colors.lawful,

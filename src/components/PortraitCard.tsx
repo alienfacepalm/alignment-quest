@@ -30,7 +30,12 @@ export function PortraitCard({
       ]}
     >
       <View style={styles.headerRow}>
-        <SigilPortrait monogram={person.monogram} accent={person.accent} size={compact ? 54 : 62} />
+        <SigilPortrait
+          personId={person.id}
+          accent={person.accent}
+          size={compact ? 54 : 62}
+          accessibilityLabel={person.name}
+        />
         <View style={styles.identityBlock}>
           <Text style={styles.name}>{person.name}</Text>
           <Text style={styles.role}>{person.role}</Text>

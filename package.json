@@ -4,6 +4,7 @@
   "private": true,
   "main": "index.tsx",
   "scripts": {
+    "postinstall": "node scripts/apply-expo-ios-patches.cjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

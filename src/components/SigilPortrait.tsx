@@ -1,41 +1,92 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
 type Props = {
-  monogram: string;
+  personId: string;
   accent: string;
   size?: number;
+  accessibilityLabel?: string;
 };
 
-export function SigilPortrait({ monogram, accent, size = 64 }: Props) {
+function hashPersonId(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function initialsFromId(value: string) {
+  return value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+export function SigilPortrait({ personId, accent, size = 64, accessibilityLabel }: Props) {
+  const hash = useMemo(() => hashPersonId(personId), [personId]);
+  const initials = useMemo(() => initialsFromId(personId), [personId]);
+  const rotation = ((hash % 7) - 3) * 6;
+  const orbOffset = size * 0.16;
+  const glyphSize = Math.max(16, size * 0.34);
+
   return (
     <View
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
       style={[
         styles.shell,
         {
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: size * 0.32,
           borderColor: accent,
         },
       ]}
     >
       <View
         style={[
-          styles.innerRing,
+          styles.orb,
           {
-            borderRadius: (size - 12) / 2,
-            width: size - 12,
-            height: size - 12,
-            backgroundColor: accent,
+            width: size * 0.62,
+            height: size * 0.62,
+            borderRadius: size * 0.31,
+            top: -orbOffset * 0.2,
+            left: -orbOffset * 0.1,
+            backgroundColor: `${accent}55`,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.spark,
+          {
+            width: size * 0.28,
+            height: size * 0.28,
+            borderRadius: size * 0.14,
+            right: orbOffset * 0.15,
+            bottom: orbOffset * 0.15,
+            backgroundColor: colors.brass,
+            transform: [{ rotate: `${rotation}deg` }],
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.core,
+          {
+            width: size * 0.54,
+            height: size * 0.54,
+            borderRadius: size * 0.18,
+            transform: [{ rotate: `${rotation}deg` }],
           },
         ]}
       >
-        <Text style={[styles.monogram, { fontSize: Math.max(18, size * 0.32) }]}>
-          {monogram}
-        </Text>
+        <Text style={[styles.initials, { fontSize: glyphSize }]}>{initials || "?"}</Text>
       </View>
     </View>
   );
@@ -43,20 +94,30 @@ export function SigilPortrait({ monogram, accent, size = 64 }: Props) {
 
 const styles = StyleSheet.create({
   shell: {
+    overflow: "hidden",
+    borderWidth: 2,
+    backgroundColor: colors.panelRaised,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    backgroundColor: colors.ink,
+    position: "relative",
   },
-  innerRing: {
-    alignItems: "center",
-    justifyContent: "center",
+  orb: {
+    position: "absolute",
+  },
+  spark: {
+    position: "absolute",
     opacity: 0.95,
   },
-  monogram: {
+  core: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.ink,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+  initials: {
     color: colors.parchment,
-    fontWeight: "800",
-    letterSpacing: 1.1,
+    fontWeight: "900",
+    letterSpacing: 1,
   },
 });
-

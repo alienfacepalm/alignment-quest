@@ -61,6 +61,14 @@ target 'AlignmentDraft' do
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
 
+    # Patched `expo-modules-core` (see patches/) for Swift 5.x-friendly @MainActor placement.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['SWIFT_VERSION'] = '5.9'
+        build_config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+      end
+    end
+
     hermes_public_headers = File.join(__dir__, 'Pods', 'Headers', 'Public', 'hermes-engine')
     hermes_jsi_headers = File.join(__dir__, 'Pods', 'hermes-engine', 'destroot', 'include', 'jsi')
     hermes_jsi_link = File.join(hermes_public_headers, 'jsi')
