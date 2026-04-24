@@ -124,3 +124,42 @@ patchFile("ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift", [
     to: "        let origin = view.frame.origin\n        callback(CGRect(origin: origin, size: newValue.size))",
   },
 ]);
+
+// 8) expo-dev-launcher: Swift 6 actor isolation in delegate callback
+// pnpm nests expo-dev-launcher under .pnpm; patch it similarly to expo-modules-core.
+function resolvePkgBase(pkgName) {
+  const pkgCandidates = [
+    path.join(repoRoot, "node_modules", pkgName, "package.json"),
+    path.join(repoRoot, "node_modules", ".pnpm", "node_modules", pkgName, "package.json"),
+  ];
+
+  for (const pkg of pkgCandidates) {
+    if (fs.existsSync(pkg)) return path.dirname(pkg);
+  }
+
+  try {
+    return path.dirname(require.resolve(`${pkgName}/package.json`, { paths: [repoRoot] }));
+  } catch {
+    return null;
+  }
+}
+
+const devLauncherBase = resolvePkgBase("expo-dev-launcher");
+if (!devLauncherBase) {
+  console.warn("apply-expo-ios-patches: expo-dev-launcher not found, skipping.");
+} else {
+  const previousBase = base;
+  base = devLauncherBase;
+
+  // Ensure devLauncherController runs on main actor so it can call createRootViewController().
+  patchFile("ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift", [
+    {
+      from:
+        "  public func devLauncherController(_ developmentClientController: EXDevLauncherController, didStartWithSuccess success: Bool) {",
+      to:
+        "  @MainActor\n  public func devLauncherController(_ developmentClientController: EXDevLauncherController, didStartWithSuccess success: Bool) {",
+    },
+  ]);
+
+  base = previousBase;
+}

@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "owner": "alienfacepalm",
+    "extra": {
+      "eas": {
+        "projectId": "9773e0ea-9ae6-4c1b-9096-90f1e469d85f"
+      }
+    },
     "android": {
       "package": "com.alienfacepalm.allignmentdraft"
     },

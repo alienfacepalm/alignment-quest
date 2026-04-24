@@ -55,6 +55,8 @@ const rowLabels = ["Good", "Neutral", "Evil"] as const;
 
 const SCROLL_HORIZONTAL_PAD = 32;
 const BOARD_BODY_GAP = 10;
+const PROMPT_PLACEHOLDER = "Star Wars, Star Trek";
+const MAX_CAST_TOKENS = 9;
 const SUPPORTS_NATIVE_BLUR =
   Platform.OS !== "web" &&
   // If the view manager isn't registered (e.g. no native rebuild), rendering BlurView throws.
@@ -179,6 +181,32 @@ function App() {
   const isTablet = width >= 720;
 
   const [prompt, setPrompt] = useState("");
+  const [hoveredStarterPrompt, setHoveredStarterPrompt] = useState<string | null>(null);
+
+  const promptTokens = useMemo(() => parseCastNames(prompt), [prompt]);
+  const promptTokenKeys = useMemo(
+    () => new Set(promptTokens.map((t) => t.toLowerCase())),
+    [promptTokens],
+  );
+  const castCount = promptTokens.length;
+
+  const toggleTopicToken = useCallback(
+    (label: string) => {
+      const key = label.toLowerCase();
+      const current = parseCastNames(prompt);
+      const idx = current.findIndex((t) => t.toLowerCase() === key);
+      if (idx >= 0) {
+        const next = [...current.slice(0, idx), ...current.slice(idx + 1)];
+        setPrompt(next.join(", "));
+        return;
+      }
+      if (current.length >= MAX_CAST_TOKENS) {
+        return;
+      }
+      setPrompt([...current, label].join(", "));
+    },
+    [prompt],
+  );
   const [phase, setPhase] = useState<TGamePhase>("idle");
   const [generatingSubPhase, setGeneratingSubPhase] = useState<"draft" | "portraits">("draft");
   const [generatingPreviewBoard, setGeneratingPreviewBoard] = useState<TQuestBoard | null>(null);
@@ -346,25 +374,18 @@ function App() {
       ? 0.12
       : 0.12 + 0.88 * (conjuringPortraitTotal > 0 ? conjuringPortraitDone / conjuringPortraitTotal : 0);
 
-  /** Percent-based flex cells + fixed `gap` overflow on narrow widths; use measured 3×3 rows instead. */
+  /** Keep the 3×3 chart centered as a single unit instead of letting row labels absorb leftover width. */
   const boardLayout = useMemo(() => {
     const inner = Math.max(0, width - SCROLL_HORIZONTAL_PAD - insets.left - insets.right);
-    const minRow = 38;
-    const maxRow = 62;
-    let cellGap = inner < 300 ? 5 : 8;
-    let cellUpper = Math.floor((inner - BOARD_BODY_GAP - 2 * cellGap - minRow) / 3);
-    let cellLower = Math.ceil((inner - BOARD_BODY_GAP - 2 * cellGap - maxRow) / 3);
-    let cell = Math.min(cellUpper, Math.max(cellLower, 44));
-    if (cellLower > cellUpper) {
-      cellGap = 4;
-      cellUpper = Math.floor((inner - BOARD_BODY_GAP - 2 * cellGap - minRow) / 3);
-      cellLower = Math.ceil((inner - BOARD_BODY_GAP - 2 * cellGap - maxRow) / 3);
-      cell = Math.min(cellUpper, Math.max(cellLower, 40));
-    }
+    const rowLabelWidth = inner < 340 ? 46 : 58;
+    const cellGap = inner < 340 ? 6 : 8;
+    const maxCell = isTablet ? 104 : 82;
+    const availableCell = Math.floor((inner - rowLabelWidth - BOARD_BODY_GAP - 2 * cellGap) / 3);
+    const cell = Math.max(48, Math.min(maxCell, availableCell));
     const gridWidth = cell * 3 + cellGap * 2;
-    const rowLabelWidth = Math.min(maxRow, Math.max(minRow, inner - BOARD_BODY_GAP - gridWidth));
-    const sigilSize = Math.round(Math.min(isTablet ? 72 : 58, cell * 0.46));
-    return { rowLabelWidth, cell, cellGap, gridWidth, sigilSize };
+    const boardWidth = rowLabelWidth + BOARD_BODY_GAP + gridWidth;
+    const sigilSize = Math.round(Math.min(isTablet ? 72 : 54, cell * 0.58));
+    return { rowLabelWidth, cell, cellGap, gridWidth, boardWidth, sigilSize };
   }, [width, insets.left, insets.right, isTablet]);
 
   const deckFanMetrics = useMemo(() => {
@@ -495,19 +516,16 @@ function App() {
     promptInputRef.current?.blur();
     Keyboard.dismiss();
 
-    const raw = prompt.trim();
-    const looksLikeNameList = raw.includes(",") || raw.includes("\n") || raw.includes(";");
-    const names = looksLikeNameList ? parseCastNames(raw) : [];
+    const typed = prompt.trim();
+    // If the user hasn't typed or picked anything, honor the placeholder as the default topic.
+    const effective = typed.length ? typed : PROMPT_PLACEHOLDER;
+    const tokens = parseCastNames(effective).slice(0, MAX_CAST_TOKENS);
 
-    if (!raw) {
+    if (!tokens.length) {
       pendingPromptRef.current = "Surprise me (random cast)";
       pendingQuestOptsRef.current = { randomSeed: String(Date.now()), forceLlm: true };
-    } else if (names.length > 0) {
-      const requiredNames = names.slice(0, 9);
-      pendingPromptRef.current = `Custom cast: ${requiredNames.join(", ")}`;
-      pendingQuestOptsRef.current = { requiredNames, randomSeed: String(Date.now()), forceLlm: true };
     } else {
-      pendingPromptRef.current = raw;
+      pendingPromptRef.current = tokens.join(", ");
       pendingQuestOptsRef.current = undefined;
     }
     setGenerationError(null);
@@ -647,12 +665,13 @@ function App() {
 
               <Text style={styles.idleTitle}>Name thy cast</Text>
 
+              <Text style={styles.idleInputHint}>Type your own, comma‑separated — or tap realms below.</Text>
               <View style={[styles.questInputRow, styles.idleQuestInput]}>
                 <TextInput
                   ref={promptInputRef}
                   value={prompt}
                   onChangeText={setPrompt}
-                  placeholder="Thy quarry—knights of the Round Table, rogue stars, rival guilds…"
+                  placeholder={PROMPT_PLACEHOLDER}
                   placeholderTextColor={colors.parchmentMuted}
                   style={[styles.questInput, styles.questInputFlex]}
                   autoCapitalize="sentences"
@@ -675,36 +694,68 @@ function App() {
                   </Pressable>
                 ) : null}
               </View>
-              <PrimaryButton label="Commence" onPress={beginQuestGeneration} />
+              <PrimaryButton label="Conjure" onPress={beginQuestGeneration} />
 
-              <Text style={[styles.idleSectionLabel, styles.idleStartersLabel]}>Starter realms</Text>
+              <View style={styles.starterHeadRow}>
+                <Text style={[styles.idleSectionLabel, styles.idleStartersLabel]}>Realms</Text>
+                <View
+                  style={styles.pipRow}
+                  accessibilityLabel={`${castCount} of ${MAX_CAST_TOKENS} cast slots filled`}
+                >
+                  {Array.from({ length: MAX_CAST_TOKENS }, (_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.pip, i < castCount ? styles.pipFilled : undefined]}
+                    />
+                  ))}
+                </View>
+              </View>
               <View style={styles.topicGrid}>
                 {suggestedTopics.map((topic) => {
-                  const selected =
-                    prompt.trim().toLowerCase() === topic.prompt.trim().toLowerCase();
+                  const selected = promptTokenKeys.has(topic.label.toLowerCase());
+                  const atLimit = !selected && castCount >= MAX_CAST_TOKENS;
+                  const hovered = hoveredStarterPrompt === topic.prompt;
                   return (
                     <Pressable
                       key={topic.label}
                       accessibilityRole="button"
-                      accessibilityLabel={`${topic.label}. ${topic.hook}`}
+                      accessibilityLabel={topic.label}
                       accessibilityState={{ selected }}
-                      onPress={() => {
-                        setPrompt(topic.prompt);
-                        setGenerationError(null);
+                      onHoverIn={() => setHoveredStarterPrompt(topic.prompt)}
+                      onHoverOut={() => setHoveredStarterPrompt((v) => (v === topic.prompt ? null : v))}
+                      onPressIn={() => {
+                        if (atLimit) {
+                          void playGameSfx("tap");
+                          hapticError();
+                          return;
+                        }
                         void playGameSfx("tap");
                         hapticLight();
                       }}
+                      onPress={() => {
+                        setGenerationError(null);
+                        toggleTopicToken(topic.label);
+                      }}
+                      disabled={atLimit}
                       style={({ pressed }) => [
                         styles.topicCard,
                         shadow.card,
                         { flexBasis: isTablet ? "31%" : "47%" },
                         selected ? styles.topicCardSelected : undefined,
+                        atLimit ? styles.topicCardDisabled : undefined,
+                        hovered && !selected && !atLimit ? styles.topicCardHovered : undefined,
                         pressed ? styles.topicCardPressed : undefined,
                       ]}
                     >
                       <Text style={styles.topicEmoji}>{topic.emoji}</Text>
-                      <Text style={styles.topicCardLabel}>{topic.label}</Text>
-                      <Text style={styles.topicCardHook}>{topic.hook}</Text>
+                      <Text style={styles.topicCardLabel} numberOfLines={1}>
+                        {topic.label}
+                      </Text>
+                      {selected ? (
+                        <View style={styles.topicCheckBadge} pointerEvents="none">
+                          <Text style={styles.topicCheckMark}>✓</Text>
+                        </View>
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -773,46 +824,8 @@ function App() {
 
         {(phase === "sorting" || phase === "revealed") && board ? (
           <View style={styles.sectionStack}>
-            {board.title ? (
-              <Text style={styles.topicLine} numberOfLines={2}>
-                {board.title}
-              </Text>
-            ) : null}
-
-            {phase === "sorting" ? (
-              <View style={styles.progressHead}>
-                <Text style={styles.progressEyebrow}>{remainingCount} cards left</Text>
-                <ProgressBar value={progressRatio} />
-              </View>
-            ) : null}
-
-            {selectedPerson && phase === "sorting" ? (
-              <Pressable
-                onPress={() => setInspectOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Open selected card details"
-                style={({ pressed }) => [pressed ? styles.pressed : undefined]}
-              >
-                <GlassCard style={styles.selectedCard} accentColor={selectedPerson.accent}>
-                  <Text style={styles.selectedLabel}>Selected</Text>
-                  <View style={styles.selectedRow}>
-                    <SigilPortrait
-                      personId={selectedPerson.id}
-                      accent={selectedPerson.accent}
-                      size={52}
-                      accessibilityLabel={selectedPerson.name}
-                      portraitUri={selectedPerson.portraitUri}
-                    />
-                    <Text style={styles.selectedText}>
-                      {selectedPerson.name} — {selectedPerson.role}
-                    </Text>
-                  </View>
-                </GlassCard>
-              </Pressable>
-            ) : null}
-
             <View style={styles.boardWrap}>
-              <View style={styles.boardFrame}>
+              <View style={[styles.boardFrame, { width: boardLayout.boardWidth }]}>
                 <View style={[styles.columnHeaderRow, { paddingLeft: boardLayout.rowLabelWidth + BOARD_BODY_GAP }]}>
                   <View style={[styles.boardHeaderCells, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
                     {columnLabels.map((label) => (
@@ -868,6 +881,12 @@ function App() {
                                 styles.boardCell,
                                 { width: boardLayout.cell, height: boardLayout.cell },
                                 person ? styles.boardCellFilled : styles.boardCellEmpty,
+                                !person
+                                  ? {
+                                      borderColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}dd`,
+                                      backgroundColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}22`,
+                                    }
+                                  : undefined,
                                 person
                                   ? {
                                       borderStyle: "solid",
@@ -905,8 +924,22 @@ function App() {
                                   ) : null}
                                 </View>
                               ) : (
-                                <View style={styles.boardCellEmptyState}>
-                                  <Text style={styles.boardCellPlus}>+</Text>
+                                <View
+                                  style={[
+                                    styles.boardCellEmptyState,
+                                    {
+                                      shadowColor: ALIGNMENT_CELL_CHART_COLORS[alignment],
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.boardCellPlus,
+                                      { color: ALIGNMENT_CELL_CHART_COLORS[alignment] },
+                                    ]}
+                                  >
+                                    +
+                                  </Text>
                                 </View>
                               )}
                             </Pressable>
@@ -918,6 +951,44 @@ function App() {
                 ))}
               </View>
             </View>
+
+            {board.title ? (
+              <Text style={styles.topicLine} numberOfLines={2}>
+                {board.title}
+              </Text>
+            ) : null}
+
+            {phase === "sorting" ? (
+              <View style={styles.progressHead}>
+                <Text style={styles.progressEyebrow}>{remainingCount} cards left</Text>
+                <ProgressBar value={progressRatio} />
+              </View>
+            ) : null}
+
+            {selectedPerson && phase === "sorting" ? (
+              <Pressable
+                onPress={() => setInspectOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open selected card details"
+                style={({ pressed }) => [pressed ? styles.pressed : undefined]}
+              >
+                <GlassCard style={styles.selectedCard} accentColor={selectedPerson.accent}>
+                  <Text style={styles.selectedLabel}>Selected</Text>
+                  <View style={styles.selectedRow}>
+                    <SigilPortrait
+                      personId={selectedPerson.id}
+                      accent={selectedPerson.accent}
+                      size={52}
+                      accessibilityLabel={selectedPerson.name}
+                      portraitUri={selectedPerson.portraitUri}
+                    />
+                    <Text style={styles.selectedText}>
+                      {selectedPerson.name} — {selectedPerson.role}
+                    </Text>
+                  </View>
+                </GlassCard>
+              </Pressable>
+            ) : null}
 
             {phase === "sorting" ? (
               <View style={styles.deckSection}>
@@ -1114,30 +1185,35 @@ function PrimaryButton({
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => {
+        if (disabled) return;
+        void playGameSfx("tap");
+        hapticLight();
+      }}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        styles.primaryButton,
-        shadow.card,
-        disabled ? styles.disabledButton : undefined,
-        pressed && !disabled ? styles.pressed : undefined,
+        styles.primaryButtonPressable,
+        disabled ? styles.primaryButtonDisabled : null,
+        pressed && !disabled ? styles.primaryButtonPressed : null,
       ]}
     >
-      <View style={styles.primaryButtonFill}>
-        {!SUPPORTS_NATIVE_BLUR ? <View pointerEvents="none" style={styles.primaryButtonWebBlurFallback} /> : null}
-        {SUPPORTS_NATIVE_BLUR ? (
-          <BlurView
-            pointerEvents="none"
-            intensity={24}
-            tint="light"
-            style={StyleSheet.absoluteFillObject}
-          />
-        ) : null}
-        <View pointerEvents="none" style={styles.primaryButtonTint} />
-        <View pointerEvents="none" style={styles.primaryButtonEdgeGlow} />
-        <View pointerEvents="none" style={styles.primaryButtonSheenTop} />
-        <View pointerEvents="none" style={styles.primaryButtonSheenSweep} />
-        <Text style={styles.primaryButtonText}>{label}</Text>
-      </View>
+      {({ pressed }) => (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.primaryButtonBody,
+            disabled ? styles.primaryButtonBodyDisabled : null,
+            pressed && !disabled ? styles.primaryButtonBodyPressed : null,
+          ]}
+        >
+          <View pointerEvents="none" style={styles.primaryButtonHighlight} />
+          <View pointerEvents="none" style={styles.primaryButtonBevel} />
+          <Text style={styles.primaryButtonText}>{label}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -1359,8 +1435,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
+  idleInputHint: {
+    color: colors.parchmentMuted,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: -4,
+    marginBottom: 8,
+    opacity: 0.85,
+  },
   idleQuestInput: {
-    marginTop: 4,
+    marginTop: 0,
     marginBottom: 12,
   },
   idleSectionLabel: {
@@ -1377,44 +1461,114 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.08)",
   },
+  starterHeadRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  starterMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 18,
+  },
+  pipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  pip: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  pipFilled: {
+    backgroundColor: colors.brass,
+    borderColor: colors.brass,
+  },
+  starterClearBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  starterClearText: {
+    color: colors.parchment,
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: "800",
+    marginTop: -1,
+  },
   topicGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    marginTop: 10,
+    marginTop: 12,
   },
   topicCard: {
-    minWidth: 132,
+    minWidth: 140,
+    minHeight: 108,
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(67, 58, 122, 0.92)",
     backgroundColor: "rgba(10, 12, 22, 0.92)",
-    gap: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
   topicCardSelected: {
     borderColor: colors.brass,
-    backgroundColor: "rgba(255, 216, 77, 0.1)",
+    backgroundColor: "rgba(255, 216, 77, 0.12)",
+  },
+  topicCardHovered: {
+    borderColor: "rgba(121, 91, 255, 0.85)",
+    backgroundColor: "rgba(32, 26, 66, 0.92)",
+  },
+  topicCardDisabled: {
+    opacity: 0.45,
   },
   topicCardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.92,
+    transform: [{ scale: 0.96 }],
   },
   topicEmoji: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 40,
+    lineHeight: 48,
+    textAlign: "center",
   },
   topicCardLabel: {
     color: colors.parchment,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "800",
+    textAlign: "center",
+    letterSpacing: 0.2,
   },
-  topicCardHook: {
-    color: colors.parchmentMuted,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: "600",
+  topicCheckBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.brass,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topicCheckMark: {
+    color: "#120f28",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: -1,
   },
   generationErrorBox: {
     marginTop: 10,
@@ -1543,7 +1697,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   boardFrame: {
-    width: "100%",
+    alignSelf: "center",
     maxWidth: 760,
     gap: 12,
   },
@@ -1584,12 +1738,12 @@ const styles = StyleSheet.create({
   boardCell: {
     borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 1,
+    borderWidth: 3,
   },
   boardCellEmpty: {
-    borderColor: "rgba(67, 58, 122, 0.7)",
+    borderColor: "rgba(255,255,255,0.22)",
     borderStyle: "solid",
-    backgroundColor: "rgba(10, 12, 22, 0.88)",
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
   },
   boardCellFilled: {
     borderColor: "rgba(83, 167, 255, 0.36)",
@@ -1605,11 +1759,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
   boardCellPlus: {
-    color: "#42557c",
-    fontSize: 40,
-    fontWeight: "700",
+    fontSize: 48,
+    fontWeight: "900",
+    lineHeight: 52,
+    opacity: 1,
+    textShadowColor: "rgba(255,255,255,0.38)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
   boardCardFill: {
     flex: 1,
@@ -1792,64 +1953,58 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  primaryButton: {
-    minHeight: 54,
+  primaryButtonPressable: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+  primaryButtonBody: {
+    height: 60,
     borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 64, 70, 0.32)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "#ff3a3f",
+    borderWidth: 2,
+    borderColor: "#ffb3b7",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
+    overflow: "hidden",
   },
-  primaryButtonFill: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  primaryButtonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
-  primaryButtonWebBlurFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  primaryButtonDisabled: {
+    opacity: 0.4,
   },
-  primaryButtonTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 64, 70, 0.6)",
-  },
-  primaryButtonEdgeGlow: {
+  primaryButtonHighlight: {
     position: "absolute",
-    top: 0,
+    left: 6,
+    right: 6,
+    top: 6,
+    height: 22,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  primaryButtonBevel: {
+    position: "absolute",
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.28)",
+    bottom: 0,
+    height: 10,
+    backgroundColor: "rgba(0,0,0,0.18)",
   },
-  primaryButtonSheenTop: {
-    position: "absolute",
-    top: -18,
-    left: -40,
-    right: -40,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.16)",
+  primaryButtonBodyPressed: {
+    backgroundColor: "#e82d32",
   },
-  primaryButtonSheenSweep: {
-    position: "absolute",
-    top: -60,
-    left: -120,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    transform: [{ rotate: "-18deg" }],
+  primaryButtonBodyDisabled: {
+    backgroundColor: "#6a2a2d",
+    borderColor: "rgba(255,255,255,0.2)",
   },
   primaryButtonText: {
-    color: colors.parchment,
-    fontSize: 16,
-    fontWeight: "800",
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 1.4,
   },
   secondaryButton: {
     minHeight: 52,
@@ -1866,9 +2021,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     textTransform: "uppercase",
-  },
-  disabledButton: {
-    opacity: 0.38,
   },
   pressed: {
     opacity: 0.88,

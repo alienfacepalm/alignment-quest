@@ -90,8 +90,8 @@ export function DeckFanCard({
       ]}
       onTouchStart={() => onFrontBegin?.()}
       onTouchEnd={() => onFrontEnd?.()}
-      onMouseEnter={Platform.OS === "web" ? () => onFrontBegin?.() : undefined}
-      onMouseLeave={Platform.OS === "web" ? () => onFrontEnd?.() : undefined}
+      onPointerEnter={Platform.OS === "web" ? () => onFrontBegin?.() : undefined}
+      onPointerLeave={Platform.OS === "web" ? () => onFrontEnd?.() : undefined}
     >
       <GestureDetector gesture={gesture}>
         <Animated.View

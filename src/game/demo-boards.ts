@@ -891,6 +891,18 @@ export const suggestedTopics: TSuggestedTopic[] = [
   { label: "Fast food", prompt: "fast food mascots", emoji: "🍟", hook: "Mascots with… strong opinions" },
   { label: "Shakespeare", prompt: "Shakespeare villains", emoji: "📜", hook: "The stage is a battlefield" },
   { label: "Politics (US)", prompt: "Trump administration", emoji: "🏛", hook: "Satirical sorting—game only" },
+  { label: "Mythology", prompt: "Greek gods and heroes", emoji: "⚡️", hook: "Tragedy, hubris, divine drama" },
+  { label: "Star Wars", prompt: "Star Wars characters", emoji: "🛸", hook: "Jedi codes, scoundrels, empires" },
+  { label: "Harry Potter", prompt: "Harry Potter characters", emoji: "🪄", hook: "Houses, hexes, chosen ones" },
+  { label: "The Office", prompt: "The Office characters", emoji: "🗄", hook: "Petty tyrants, lovable weirdos" },
+  { label: "Anime", prompt: "anime protagonists and rivals", emoji: "🍥", hook: "Power-ups and moral arcs" },
+  { label: "Reality TV", prompt: "reality TV archetypes", emoji: "💅", hook: "Alliances, confessionals, chaos" },
+  { label: "Superheroes (DC)", prompt: "DC Comics characters", emoji: "🦇", hook: "Vows, villains, vigilantes" },
+  { label: "Fantasy novels", prompt: "epic fantasy characters", emoji: "🐉", hook: "Oaths, betrayals, prophecies" },
+  { label: "Sports teams", prompt: "sports team personalities", emoji: "🏟", hook: "Captains, grinders, hotheads" },
+  { label: "Startup life", prompt: "startup founders and operators", emoji: "🚀", hook: "Vision, hustle, and ego" },
+  { label: "High school", prompt: "high school cliques", emoji: "🎒", hook: "Popular kids and chaos gremlins" },
+  { label: "Pirates", prompt: "pirates and privateers", emoji: "🏴‍☠️", hook: "Codes, mutiny, treasure" },
 ];
 
 const boardMap: Array<{ keywords: string[]; board: typeof executiveCircle }> = [
