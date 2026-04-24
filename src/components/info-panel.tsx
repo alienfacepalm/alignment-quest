@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getAlignmentLabel } from "../game/demoBoards";
+import { getAlignmentLabel } from "../game/demo-boards";
 import { GamePhase, PersonCard, Placements, QuestBoard, QuestScore } from "../game/types";
 import { colors, shadow } from "../theme";
 

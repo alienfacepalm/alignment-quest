@@ -1,4 +1,4 @@
-import { createRng, hashId, hslToRgb, rgbToHex, shirtColor } from "./portraitFromId";
+import { createRng, hashId, hslToRgb, rgbToHex, shirtColor } from "./portrait-from-id";
 
 export type PersonPortraitProps = {
   personId: string;

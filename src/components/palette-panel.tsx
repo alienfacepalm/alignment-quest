@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { GamePhase, QuestBoard } from "../game/types";
 import { colors, shadow } from "../theme";
-import { PortraitCard } from "./PortraitCard";
+import { PortraitCard } from "./portrait-card";
 
 type Props = {
   board: QuestBoard;

@@ -1,0 +1,28 @@
+---
+description: Use kebab-case for file and directory names, not PascalCase
+alwaysApply: true
+---
+
+# File and directory naming: kebab-case
+
+- **New files, directories, and renames** must use **kebab-case** (lowercase words separated by hyphens).
+- **Do not** use **PascalCase** or **camelCase** for file or directory names.
+
+## Examples
+
+| Avoid | Prefer |
+|--------|--------|
+| `QuestBoard.tsx` | `quest-board.tsx` |
+| `AlignmentLogo.tsx` | `alignment-logo.tsx` |
+| `useDeckState.ts` | `use-deck-state.ts` |
+| `demoBoards.ts` | `demo-boards.ts` |
+| `src/components/` (if named with PascalCase) | `src/quest-board/` |
+| `hooks/useDeck/` | `hooks/use-deck/` |
+
+- **Imports** and **exports** are unchanged: React components and types are still **PascalCase** in code; only **paths on disk** (files and directories) are kebab-case.
+
+## Exceptions
+
+- **Bundler or framework entry files** the toolchain expects by name (e.g. root `App.tsx`, `index.tsx` where Metro/Expo require them) may keep that name. Prefer kebab-case for everything else, including new components under `src/`.
+
+When touching an existing PascalCase or camelCase **file or directory**, **do not rename** it unless the task explicitly includes migration—avoid drive-by renames.

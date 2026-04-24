@@ -27,6 +27,10 @@ export type PersonCard = {
   monogram: string;
   accent: string;
   alignment: AlignmentKey;
+  /** LLM- or data-authored visual cues for image generation; optional on demo boards. */
+  portraitVisual?: string;
+  /** Local `file://` cache URI from OpenAI image generation, when available. */
+  portraitUri?: string;
 };
 
 export type QuestBoard = {

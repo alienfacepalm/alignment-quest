@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PersonCard } from "../game/types";
 import { colors, shadow } from "../theme";
-import { SigilPortrait } from "./SigilPortrait";
+import { SigilPortrait } from "./sigil-portrait";
 
 type Props = {
   person: PersonCard;
@@ -35,6 +35,7 @@ export function PortraitCard({
           accent={person.accent}
           size={compact ? 54 : 62}
           accessibilityLabel={person.name}
+          portraitUri={person.portraitUri}
         />
         <View style={styles.identityBlock}>
           <Text style={styles.name}>{person.name}</Text>

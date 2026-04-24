@@ -1,0 +1,29 @@
+---
+description: Branching and commit message best practices for this repo
+alwaysApply: true
+---
+
+# Git workflow: branches and commits
+
+## Branches
+
+- **Default**: work on a short-lived branch, then merge via PR (even if you self-merge).
+- **Naming**: use kebab-case and a type prefix.
+  - `feat/<kebab-summary>`
+  - `fix/<kebab-summary>`
+  - `chore/<kebab-summary>`
+- **Keep it focused**: one branch = one intent (avoid mixing refactors + features unless inseparable).
+- **Sync**: regularly pull/rebase from `master` to reduce conflicts; avoid long-lived drift.
+
+## Commit messages
+
+- **Imperative, present tense** (like a command): “Add…”, “Fix…”, “Refactor…”.
+- **Subject only, ~72 chars max** when possible; add a body only for non-obvious reasoning.
+- **No WIP**: avoid “wip”, “stuff”, “changes”, “fix”, or ticket-only messages.
+- **Atomic**: prefer commits that do one logical thing and keep builds passing.
+
+### Examples
+
+- `Add quest board resolution and scoring`
+- `Fix haptics on score reveal`
+- `Refactor portrait model for deterministic IDs`

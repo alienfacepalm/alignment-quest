@@ -9,7 +9,8 @@
       "package": "com.alienfacepalm.allignmentdraft"
     },
     "ios": {
-      "bundleIdentifier": "com.alienfacepalm.allignmentdraft"
+      "bundleIdentifier": "com.alienfacepalm.allignmentdraft",
+      "supportsTablet": true
     },
     "web": {
       "bundler": "metro",

@@ -1,10 +1,10 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getAlignmentLabel } from "../game/demoBoards";
+import { getAlignmentLabel } from "../game/demo-boards";
 import { alignmentOrder, AlignmentKey, GamePhase, Placements, QuestBoard } from "../game/types";
 import { colors, shadow } from "../theme";
-import { PortraitCard } from "./PortraitCard";
+import { PortraitCard } from "./portrait-card";
 
 type Props = {
   board: QuestBoard;

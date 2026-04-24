@@ -4,25 +4,35 @@
   "private": true,
   "main": "index.tsx",
   "scripts": {
-    "postinstall": "node scripts/apply-expo-ios-patches.cjs",
+    "postinstall": "node scripts/apply-expo-ios-patches.cjs && node scripts/generate-sfx.cjs",
     "start": "expo start",
     "android": "expo run:android",
-    "ios": "expo run:ios",
+    "ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 expo run:ios",
     "web": "expo start --web",
     "export:web": "expo export --platform web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.10",
     "expo": "~55.0.2",
+    "expo-audio": "~55.0.14",
+    "expo-constants": "^55.0.15",
+    "expo-file-system": "^55.0.17",
+    "expo-haptics": "~55.0.14",
     "expo-status-bar": "~55.0.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
+    "react-native-gesture-handler": "~2.30.1",
+    "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
-    "react-native-web": "^0.21.1"
+    "react-native-web": "^0.21.1",
+    "react-native-worklets": "0.7.4"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "@types/react": "~19.2.2",
+    "babel-preset-expo": "^55.0.18",
+    "dotenv": "^17.4.2",
     "typescript": "~5.9.2"
   }
 }

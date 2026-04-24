@@ -10,6 +10,10 @@ description: >-
 
 Use when editing this repo’s alignment quest: `App.tsx`, `src/game/*`, or placement / reveal UX.
 
+## Platform priority
+
+**iOS and Android** (phones and tablets) first; **web** second. Optimize layout and feel for native; keep web working (e.g. `expo export --platform web`) but do not block native UX for web limitations.
+
 ## Product rules
 
 1. **Deck**: Exactly **9** `PersonCard` entries per quest, one per alignment cell in the 3×3 grid.
@@ -26,6 +30,7 @@ Use when editing this repo’s alignment quest: `App.tsx`, `src/game/*`, or plac
 ## Checklist before shipping a change
 
 - [ ] `npx tsc --noEmit` passes
+- [ ] Change behaves on **iOS and Android** (phone or tablet); spot-check **web** if it touches gestures, audio, or layout
 - [ ] New quest still produces 9 cards and a full `answerKey`
 - [ ] Submit is disabled until all 9 cells are filled
 - [ ] Reveal shows match count 0–9 and does not add non-MVP systems

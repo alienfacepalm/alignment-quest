@@ -384,109 +384,6 @@ const mascotMayhem = {
   people: QuestBoard["palette"];
 };
 
-/** Public-domain style adventure figures for when the prompt does not match a hand-authored cast. */
-const customArchetypeSeeds: Array<{
-  slot: AlignmentKey;
-  name: string;
-  role: string;
-  monogram: string;
-  hint: string;
-  rationale: string;
-  confidence: number;
-  accent: string;
-}> = [
-  {
-    slot: "lawful-good",
-    name: "The Warden",
-    role: "Shield of the team",
-    monogram: "WD",
-    hint: "Order that protects the least.",
-    rationale: "A classic lawful-good anchor: rules as care, not control.",
-    confidence: 0.6,
-    accent: "#4f7db8",
-  },
-  {
-    slot: "neutral-good",
-    name: "The Medic",
-    role: "Keeps the party on its feet",
-    monogram: "MD",
-    hint: "Good without picking a system.",
-    rationale: "Helps who needs it first—neutral on methods, not on care.",
-    confidence: 0.6,
-    accent: "#5ba46e",
-  },
-  {
-    slot: "chaotic-good",
-    name: "The Firebrand",
-    role: "Breaks the bad plan to save the day",
-    monogram: "FB",
-    hint: "Chaos in service of people.",
-    rationale: "Improvises, argues, and still lands on the side of the team.",
-    confidence: 0.58,
-    accent: "#5ba46e",
-  },
-  {
-    slot: "lawful-neutral",
-    name: "The Arbiter",
-    role: "Calls the play by the book",
-    monogram: "AR",
-    hint: "Procedure over drama.",
-    rationale: "Holds the line on structure even when it annoys the room.",
-    confidence: 0.57,
-    accent: "#4f7db8",
-  },
-  {
-    slot: "true-neutral",
-    name: "The Witness",
-    role: "Balanced, hard to read",
-    monogram: "WI",
-    hint: "Center of the table.",
-    rationale: "Not picking sides is itself a position—keeps outcomes even.",
-    confidence: 0.55,
-    accent: "#c29a52",
-  },
-  {
-    slot: "chaotic-neutral",
-    name: "The Wildcard",
-    role: "Unpredictable asset",
-    monogram: "WC",
-    hint: "Chaos, not malice.",
-    rationale: "Follows nerve and curiosity more than a moral scorecard.",
-    confidence: 0.56,
-    accent: "#b35d76",
-  },
-  {
-    slot: "lawful-evil",
-    name: "The Enforcer",
-    role: "Rules as a weapon",
-    monogram: "EN",
-    hint: "Order in service of domination.",
-    rationale: "Uses institutions and process to get what the roster’s villains want.",
-    confidence: 0.58,
-    accent: "#9c4c46",
-  },
-  {
-    slot: "neutral-evil",
-    name: "The Climber",
-    role: "Ambition is the only compass",
-    monogram: "CL",
-    hint: "Cold wins.",
-    rationale: "Will trade, betray, and bargain; ideology is a costume.",
-    confidence: 0.59,
-    accent: "#9c4c46",
-  },
-  {
-    slot: "chaotic-evil",
-    name: "The Ruiner",
-    role: "Burns the board for sport",
-    monogram: "RU",
-    hint: "Chaos and harm.",
-    rationale: "The id of the run—loud, destructive, self-serving energy.",
-    confidence: 0.57,
-    accent: "#b35d76",
-  },
-];
-
 const marvelHeroes = {
   id: "marvel-mcu-demo",
   title: "Marvel (MCU style)",
@@ -983,17 +880,17 @@ const videoGameSquad = {
 
 export const defaultPrompt = "Marvel characters";
 
-export type SuggestedTopic = { label: string; prompt: string };
+export type SuggestedTopic = { label: string; prompt: string; emoji: string; hook: string };
 
 /** Shown in the app as tappable quick starts (each maps to a keyword match or a custom cast). */
 export const suggestedTopics: SuggestedTopic[] = [
-  { label: "Marvel", prompt: "Marvel characters" },
-  { label: "Action stars", prompt: "action movie icons" },
-  { label: "D&D / RPG", prompt: "my D&D party" },
-  { label: "Video games", prompt: "video game heroes" },
-  { label: "Fast food", prompt: "fast food mascots" },
-  { label: "Shakespeare", prompt: "Shakespeare villains" },
-  { label: "Politics (US)", prompt: "Trump administration" },
+  { label: "Marvel", prompt: "Marvel characters", emoji: "🦸", hook: "Capes, quips, cosmic stakes" },
+  { label: "Action stars", prompt: "action movie icons", emoji: "🎬", hook: "Charisma cranked to eleven" },
+  { label: "D&D / RPG", prompt: "my D&D party", emoji: "🎲", hook: "Your table, nine alignments" },
+  { label: "Video games", prompt: "video game heroes", emoji: "🕹", hook: "Lore, loot, and boss energy" },
+  { label: "Fast food", prompt: "fast food mascots", emoji: "🍟", hook: "Mascots with… strong opinions" },
+  { label: "Shakespeare", prompt: "Shakespeare villains", emoji: "📜", hook: "The stage is a battlefield" },
+  { label: "Politics (US)", prompt: "Trump administration", emoji: "🏛", hook: "Satirical sorting—game only" },
 ];
 
 const boardMap: Array<{ keywords: string[]; board: typeof executiveCircle }> = [
@@ -1112,64 +1009,41 @@ function cloneBoard(source: typeof executiveCircle): QuestBoard {
   };
 }
 
-function hashTopicKey(text: string): string {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) {
-    h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+/**
+ * Returns a hand-authored demo cast when the prompt matches known keywords; otherwise null.
+ * Custom topics are resolved asynchronously via `resolveQuestBoard` (OpenAI).
+ */
+export function tryKeywordDemoBoard(prompt: string): QuestBoard | null {
+  const trimmed = prompt.trim();
+  if (!trimmed) {
+    return null;
   }
-  return Math.abs(h).toString(36);
-}
-
-/** When no keyword matches, build a stable 9-archetype deck tied to the user’s topic label. */
-function buildCustomTopicBoard(rawPrompt: string): QuestBoard {
-  const display = rawPrompt.trim() || "Custom topic";
-  const slug = hashTopicKey(display);
-  const baseId = `custom-${slug}`;
-
-  const people: QuestBoard["palette"] = customArchetypeSeeds.map((seed) => ({
-    id: `${baseId}-${seed.slot}`,
-    name: seed.name,
-    role: `${seed.role} · “${display}”`,
-    clueTags: [display.length > 40 ? `${display.slice(0, 37)}…` : display],
-    hint: seed.hint,
-    rationale: seed.rationale,
-    confidence: seed.confidence,
-    monogram: seed.monogram,
-    accent: seed.accent,
-    alignment: seed.slot,
-  }));
-
-  return {
-    id: baseId,
-    title: display,
-    subtitle: `Custom topic: nine classic party archetypes slotted to alignments for “${display}”.`,
-    disclaimer:
-      "This cast uses generic table archetypes. Your topic names the run—the answer key is a house ruling for this minigame, not a claim about real people or canon.",
-    palette: people,
-    answerKey: toAnswerKey(people),
-  };
-}
-
-/** Generates a 9-card deck and hidden per-cell answer key for the current topic. */
-export function generateBoard(prompt: string): QuestBoard {
-  const trimmed = prompt.trim() || defaultPrompt;
   const lowered = trimmed.toLowerCase();
   const match = boardMap.find((entry) =>
     entry.keywords.some((keyword) => lowered.includes(keyword))
   );
-
-  if (match) {
-    const board = cloneBoard(match.board);
-    if (board.id === executiveCircle.id) {
-      board.subtitle = `Prompt match: ${trimmed}. Local roster: nine figures mapped one-to-one to alignments.`;
-    }
-    return board;
+  if (!match) {
+    return null;
   }
-
-  return buildCustomTopicBoard(trimmed);
+  const board = cloneBoard(match.board);
+  if (board.id === executiveCircle.id) {
+    board.subtitle = `Prompt match: ${trimmed}. Local roster: nine figures mapped one-to-one to alignments.`;
+  }
+  return board;
 }
 
-/** @deprecated Use `generateBoard` */
+/**
+ * @deprecated Prefer `resolveQuestBoard` — this only returns keyword demos and throws otherwise.
+ */
+export function generateBoard(prompt: string): QuestBoard {
+  const board = tryKeywordDemoBoard(prompt);
+  if (!board) {
+    throw new Error("No keyword demo matched; use resolveQuestBoard() for custom topics.");
+  }
+  return board;
+}
+
+/** @deprecated Use `resolveQuestBoard` */
 export const buildDemoBoard = generateBoard;
 
 export function getAlignmentLabel(alignment: AlignmentKey): string {

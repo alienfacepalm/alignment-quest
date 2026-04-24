@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
@@ -8,6 +8,8 @@ type Props = {
   accent: string;
   size?: number;
   accessibilityLabel?: string;
+  /** Local `file://`, remote `https://`, or `data:` URI from image generation. */
+  portraitUri?: string;
 };
 
 function hashPersonId(value: string) {
@@ -27,27 +29,38 @@ function initialsFromId(value: string) {
     .join("");
 }
 
-export function SigilPortrait({ personId, accent, size = 64, accessibilityLabel }: Props) {
+export function SigilPortrait({ personId, accent, size = 64, accessibilityLabel, portraitUri }: Props) {
   const hash = useMemo(() => hashPersonId(personId), [personId]);
   const initials = useMemo(() => initialsFromId(personId), [personId]);
   const rotation = ((hash % 7) - 3) * 6;
   const orbOffset = size * 0.16;
   const glyphSize = Math.max(16, size * 0.34);
+  const radius = size * 0.32;
+
+  const shellStyle = [
+    styles.shell,
+    {
+      width: size,
+      height: size,
+      borderRadius: radius,
+      borderColor: accent,
+    },
+  ];
+
+  if (portraitUri) {
+    return (
+      <View accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={shellStyle}>
+        <Image
+          source={{ uri: portraitUri }}
+          style={[styles.portraitImage, { width: size, height: size, borderRadius: radius }]}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
 
   return (
-    <View
-      accessibilityRole="image"
-      accessibilityLabel={accessibilityLabel}
-      style={[
-        styles.shell,
-        {
-          width: size,
-          height: size,
-          borderRadius: size * 0.32,
-          borderColor: accent,
-        },
-      ]}
-    >
+    <View accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={shellStyle}>
       <View
         style={[
           styles.orb,
@@ -100,6 +113,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+  },
+  portraitImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   orb: {
     position: "absolute",

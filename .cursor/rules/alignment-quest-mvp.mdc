@@ -6,6 +6,7 @@ alwaysApply: true
 
 # Alignment Quest (MVP)
 
+- **Platform priority**: **iOS and Android** (phones and tablets) are the primary targets; **web** is secondary. Prefer native-safe APIs (gestures, Reanimated, haptics, audio) and test on devices or simulators first; accept or gracefully degrade web where Expo/React Native Web differs.
 - **One screen, one loop**: start topic → generate 9-card deck (hidden `answerKey`) → player fills the 3×3 grid → score → play again or new quest. Do not reintroduce tab navigation, vault, social, topic galleries, hints, or fake XP/levels unless the product owner explicitly expands scope.
 - **Game rules live in `src/game/`**: board generation (`generateBoard` / `demoBoards.ts`), types (`types.ts`), and scoring (`scoring.ts`) must stay React-free and deterministic where possible. UI (`App.tsx`) orchestrates state only.
 - **Scoring**: exact placement only—**1 point per match** (max 9 per quest). No partial row/column credit, time multipliers, or hint penalties in MVP.

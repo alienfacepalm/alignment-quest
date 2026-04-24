@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { getPortraitLayout, type PersonPortraitProps } from "../lib/personPortraitModel";
+import { getPortraitLayout, type PersonPortraitProps } from "../lib/person-portrait-model";
 import { colors } from "../theme";
 
 /**
@@ -160,7 +160,7 @@ export function PersonPortrait({ personId, accent, size = 64, accessibilityLabel
   );
 }
 
-export type { PersonPortraitProps } from "../lib/personPortraitModel";
+export type { PersonPortraitProps } from "../lib/person-portrait-model";
 
 const styles = StyleSheet.create({
   shell: {

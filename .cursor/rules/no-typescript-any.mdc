@@ -1,0 +1,20 @@
+---
+description: Do not use the TypeScript any type or as any assertions
+globs: "**/*.{ts,tsx}"
+---
+
+# TypeScript: no `any`
+
+- **Do not** use the `any` type, including in generics (e.g. `Promise<any>`, `Record<string, any>`).
+- **Do not** use `as any` or double assertions whose purpose is to bypass typing.
+- **Prefer** concrete types, generics, discriminated unions, or `unknown` with narrowing. Use helper types from TypeScript or the project (`Partial`, `Pick`, `satisfies`, etc.) when values are hard to name exactly.
+
+Narrowing unknown:
+
+```ts
+function isString(x: unknown): x is string {
+  return typeof x === "string";
+}
+```
+
+If a third-party API is untyped, prefer `unknown` plus validation or a minimal interface, or a `.d.ts` module augmentation—not `any`.

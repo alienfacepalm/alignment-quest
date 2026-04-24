@@ -1,18 +1,14 @@
 import React, { useMemo } from "react";
 import { StyleSheet, View, type ViewStyle } from "react-native";
 
-import { colors } from "../theme";
+import { ALIGNMENT_CHART_GRID_ROWS } from "../game/card-accent-palette";
 
 type Props = {
   size?: number;
 };
 
-/** Nine-cell alignment grid mark — lawful→chaotic, good→evil color hints. */
-const GRID: string[][] = [
-  [colors.lawful, colors.moss, colors.chaotic],
-  [colors.lawful, colors.neutral, colors.chaotic],
-  [colors.lawful, colors.evil, colors.chaotic],
-];
+/** Nine-cell alignment mark — same slot palette as the play grid. */
+const GRID = ALIGNMENT_CHART_GRID_ROWS;
 
 const OUTER = 3;
 const GAP = 1.5;
