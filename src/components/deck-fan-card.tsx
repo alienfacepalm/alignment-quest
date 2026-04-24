@@ -1,14 +1,14 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 
 import { SigilPortrait } from "./sigil-portrait";
-import type { PersonCard } from "../game/types";
+import type { TPersonCard } from "../game/types";
 import { colors, shadow } from "../theme";
 
-type Props = {
-  person: PersonCard;
+type TProps = {
+  person: TPersonCard;
   cardW: number;
   marginLeft: number;
   zIndex: number;
@@ -17,7 +17,10 @@ type Props = {
   tiltDeg: number;
   liftPx: number;
   active: boolean;
+  bringToFront?: boolean;
   onTap: () => void;
+  onFrontBegin?: () => void;
+  onFrontEnd?: () => void;
   onDragBegin: () => void;
   onDragEnd: (absoluteX: number, absoluteY: number) => void;
 };
@@ -32,10 +35,13 @@ export function DeckFanCard({
   tiltDeg,
   liftPx,
   active,
+  bringToFront = false,
   onTap,
+  onFrontBegin,
+  onFrontEnd,
   onDragBegin,
   onDragEnd,
-}: Props) {
+}: TProps) {
   const transX = useSharedValue(0);
   const transY = useSharedValue(0);
   const dragging = useSharedValue(0);
@@ -78,10 +84,14 @@ export function DeckFanCard({
         {
           width: cardW,
           marginLeft,
-          zIndex,
+          zIndex: bringToFront ? zIndex + 1000 : zIndex,
           transform: [{ translateY: -liftPx }, { rotate: `${tiltDeg}deg` }],
         },
       ]}
+      onTouchStart={() => onFrontBegin?.()}
+      onTouchEnd={() => onFrontEnd?.()}
+      onMouseEnter={Platform.OS === "web" ? () => onFrontBegin?.() : undefined}
+      onMouseLeave={Platform.OS === "web" ? () => onFrontEnd?.() : undefined}
     >
       <GestureDetector gesture={gesture}>
         <Animated.View

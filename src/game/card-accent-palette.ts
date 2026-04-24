@@ -1,10 +1,10 @@
-import { AlignmentKey, Placements, alignmentOrder } from "./types";
+import { TAlignmentKey, TPlacements, alignmentOrder } from "./types";
 
 /**
  * Per-cell border / label colors for the 3×3 alignment grid (reference chart).
  * Row-major: good → neutral → evil; columns lawful → neutral → chaotic.
  */
-export const ALIGNMENT_CELL_CHART_COLORS: Record<AlignmentKey, string> = {
+export const ALIGNMENT_CELL_CHART_COLORS: Record<TAlignmentKey, string> = {
   "lawful-good": "#EB5757",
   "neutral-good": "#8FE8A8",
   "chaotic-good": "#C9A8FF",
@@ -38,9 +38,9 @@ export const ALIGNMENT_CHART_GRID_ROWS: string[][] = [
 /** Each card’s accent matches the grid cell where that person is the correct answer. */
 export function assignAccentFromAnswerKey<T extends { id: string; accent: string }>(
   palette: T[],
-  answerKey: Placements,
+  answerKey: TPlacements,
 ): T[] {
-  const homeAlignmentByPerson = new Map<string, AlignmentKey>();
+  const homeAlignmentByPerson = new Map<string, TAlignmentKey>();
   for (const alignment of alignmentOrder) {
     const personId = answerKey[alignment];
     if (personId) {

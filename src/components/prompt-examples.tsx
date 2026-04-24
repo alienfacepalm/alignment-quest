@@ -1,17 +1,17 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
-type Props = {
+type TProps = {
   examples: string[];
   activeValue: string;
   onSelect: (value: string) => void;
 };
 
-export function PromptExamples({ examples, activeValue, onSelect }: Props) {
+export function PromptExamples({ examples, activeValue, onSelect }: TProps) {
   return (
-    <View style={styles.wrap}>
+    <View className="flex-row flex-wrap gap-2">
       {examples.map((example) => {
         const active = example === activeValue;
 
@@ -19,13 +19,18 @@ export function PromptExamples({ examples, activeValue, onSelect }: Props) {
           <Pressable
             key={example}
             onPress={() => onSelect(example)}
+            className="rounded-full border px-3 py-2.5"
             style={({ pressed }) => [
-              styles.chip,
-              active ? styles.chipActive : undefined,
-              pressed ? styles.chipPressed : undefined,
+              active
+                ? { backgroundColor: colors.lawful, borderColor: colors.lawful }
+                : { backgroundColor: colors.panelRaised, borderColor: colors.panelBorder },
+              pressed ? { opacity: 0.86 } : undefined,
             ]}
           >
-            <Text style={[styles.chipText, active ? styles.chipTextActive : undefined]}>
+            <Text
+              className="text-xs font-bold"
+              style={{ color: active ? colors.ink : colors.parchment }}
+            >
               {example}
             </Text>
           </Pressable>
@@ -34,34 +39,3 @@ export function PromptExamples({ examples, activeValue, onSelect }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    backgroundColor: colors.panelRaised,
-  },
-  chipActive: {
-    backgroundColor: colors.lawful,
-    borderColor: colors.lawful,
-  },
-  chipPressed: {
-    opacity: 0.86,
-  },
-  chipText: {
-    color: colors.parchment,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  chipTextActive: {
-    color: colors.ink,
-  },
-});

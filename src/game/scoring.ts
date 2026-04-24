@@ -1,21 +1,23 @@
-import { AlignmentKey, Placements, QuestGuessDetail, QuestScore } from "./types";
+import { TAlignmentKey, TPlacements, TQuestGuessDetail, TQuestScore, alignmentOrder } from "./types";
 
-type ScoreInput = {
-  answerKey: Placements;
-  guesses: Placements;
+type TScoreInput = {
+  answerKey: TPlacements;
+  guesses: TPlacements;
 };
 
-function findCorrectAlignment(answerKey: Placements, personId: string): AlignmentKey {
-  const match = Object.entries(answerKey).find(([, id]) => id === personId)?.[0];
-
-  if (!match) {
-    throw new Error(`Missing answer key for person ${personId}`);
+function findCorrectAlignment(answerKey: TPlacements, personId: string): TAlignmentKey {
+  for (const alignment of alignmentOrder) {
+    if (answerKey[alignment] === personId) {
+      return alignment;
+    }
   }
 
-  return match as AlignmentKey;
+  {
+    throw new Error(`Missing answer key for person ${personId}`);
+  }
 }
 
-export function createEmptyPlacements(): Placements {
+export function createEmptyPlacements(): TPlacements {
   return {
     "lawful-good": null,
     "neutral-good": null,
@@ -30,9 +32,9 @@ export function createEmptyPlacements(): Placements {
 }
 
 /** MVP: 1 point per person placed on their correct alignment (max 9). */
-export function scorePlacements(input: ScoreInput): QuestScore {
-  const details: QuestGuessDetail[] = Object.entries(input.guesses)
-    .filter((entry): entry is [AlignmentKey, string] => Boolean(entry[1]))
+export function scorePlacements(input: TScoreInput): TQuestScore {
+  const details: TQuestGuessDetail[] = Object.entries(input.guesses)
+    .filter((entry): entry is [TAlignmentKey, string] => Boolean(entry[1]))
     .map(([alignment, personId]) => {
       const correctAlignment = findCorrectAlignment(input.answerKey, personId);
       const correct = alignment === correctAlignment;

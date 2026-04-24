@@ -1,6 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -10,10 +12,20 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 
 import { getOpenAiApiKey } from "./src/config/openai";
+import { getXaiApiKey } from "./src/config/xai";
 import { AlignmentLogo } from "./src/components/alignment-logo";
 import { DeckFanCard } from "./src/components/deck-fan-card";
 import { SigilPortrait } from "./src/components/sigil-portrait";
@@ -25,11 +37,12 @@ import { attachPortraitsToBoard } from "./src/game/quest-portraits";
 import { resolveQuestBoard } from "./src/game/resolve-quest-board";
 import { createEmptyPlacements, scorePlacements } from "./src/game/scoring";
 import {
-  AlignmentKey,
-  GamePhase,
-  Placements,
-  QuestBoard,
-  QuestScore,
+  TAlignmentKey,
+  TGamePhase,
+  TPersonCard,
+  TPlacements,
+  TQuestBoard,
+  TQuestScore,
   alignmentOrder,
 } from "./src/game/types";
 import { colors, shadow } from "./src/theme";
@@ -42,13 +55,123 @@ const rowLabels = ["Good", "Neutral", "Evil"] as const;
 
 const SCROLL_HORIZONTAL_PAD = 32;
 const BOARD_BODY_GAP = 10;
+const SUPPORTS_NATIVE_BLUR =
+  Platform.OS !== "web" &&
+  // If the view manager isn't registered (e.g. no native rebuild), rendering BlurView throws.
+  Boolean((require("react-native").UIManager as { getViewManagerConfig?: (name: string) => unknown }).getViewManagerConfig?.("ExpoBlurView"));
+
+function parseCastNames(raw: string): string[] {
+  const parts = raw
+    .split(/[,;\n]+/g)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const name of parts) {
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      unique.push(name);
+      seen.add(key);
+    }
+  }
+  return unique;
+}
 
 /** 3×3 keys in row-major order (matches `rowLabels` / `columnLabels`). */
-const ALIGNMENT_ROWS: AlignmentKey[][] = [
+const ALIGNMENT_ROWS: TAlignmentKey[][] = [
   ["lawful-good", "neutral-good", "chaotic-good"],
   ["lawful-neutral", "true-neutral", "chaotic-neutral"],
   ["lawful-evil", "neutral-evil", "chaotic-evil"],
 ];
+
+function ConjureLoader({ label }: { label: string }) {
+  const a = useSharedValue(0);
+  const b = useSharedValue(0);
+  const c = useSharedValue(0);
+
+  useEffect(() => {
+    const pulse = (sv: typeof a, delayMs: number) => {
+      sv.value = withDelay(
+        delayMs,
+        withRepeat(withSequence(withTiming(1, { duration: 520 }), withTiming(0, { duration: 520 })), -1, false),
+      );
+    };
+    pulse(a, 0);
+    pulse(b, 160);
+    pulse(c, 320);
+  }, [a, b, c]);
+
+  const s1 = useAnimatedStyle(() => ({
+    opacity: 0.25 + a.value * 0.75,
+    transform: [{ translateY: -2 * a.value }],
+  }));
+  const s2 = useAnimatedStyle(() => ({
+    opacity: 0.25 + b.value * 0.75,
+    transform: [{ translateY: -2 * b.value }],
+  }));
+  const s3 = useAnimatedStyle(() => ({
+    opacity: 0.25 + c.value * 0.75,
+    transform: [{ translateY: -2 * c.value }],
+  }));
+
+  return (
+    <View style={styles.conjureLoaderRow} accessibilityRole="progressbar" accessibilityLabel={label}>
+      <View style={styles.conjureLoaderDots}>
+        <Animated.View style={[styles.conjureLoaderDot, s1]} />
+        <Animated.View style={[styles.conjureLoaderDot, s2]} />
+        <Animated.View style={[styles.conjureLoaderDot, s3]} />
+      </View>
+      <Text style={styles.conjureLoaderLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function ShadowFigure({ size }: { size: number }) {
+  const head = Math.max(10, Math.round(size * 0.28));
+  const bodyW = Math.max(18, Math.round(size * 0.46));
+  const bodyH = Math.max(16, Math.round(size * 0.34));
+
+  return (
+    <View style={styles.shadowFigureWrap} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View
+        style={[
+          styles.shadowFigureHead,
+          {
+            width: head,
+            height: head,
+            borderRadius: head / 2,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.shadowFigureBody,
+          {
+            width: bodyW,
+            height: bodyH,
+            borderRadius: Math.round(bodyW * 0.22),
+          },
+        ]}
+      />
+      <View style={styles.shadowFigureGlow} />
+    </View>
+  );
+}
+
+function portraitProviderLabel(): string {
+  const pref = process.env.EXPO_PUBLIC_PORTRAIT_PROVIDER?.trim().toLowerCase();
+  const hasXai = Boolean(getXaiApiKey());
+  const hasOpenAi = Boolean(getOpenAiApiKey());
+
+  if (pref === "xai") return hasXai ? "xAI" : "xAI (missing key)";
+  if (pref === "openai") return hasOpenAi ? "OpenAI" : "OpenAI (missing key)";
+
+  if (hasXai) return "xAI";
+  if (hasOpenAi) return "OpenAI";
+  return "Off";
+}
 
 function App() {
   const insets = useSafeAreaInsets();
@@ -56,23 +179,31 @@ function App() {
   const isTablet = width >= 720;
 
   const [prompt, setPrompt] = useState("");
-  const [phase, setPhase] = useState<GamePhase>("idle");
+  const [phase, setPhase] = useState<TGamePhase>("idle");
   const [generatingSubPhase, setGeneratingSubPhase] = useState<"draft" | "portraits">("draft");
-  const [generatingPreviewBoard, setGeneratingPreviewBoard] = useState<QuestBoard | null>(null);
-  const [board, setBoard] = useState<QuestBoard | null>(null);
-  const [placements, setPlacements] = useState<Placements>(() => createEmptyPlacements());
-  const [submittedPlacements, setSubmittedPlacements] = useState<Placements | null>(null);
+  const [generatingPreviewBoard, setGeneratingPreviewBoard] = useState<TQuestBoard | null>(null);
+  const [generationStatus, setGenerationStatus] = useState<string>("Preparing…");
+  const [board, setBoard] = useState<TQuestBoard | null>(null);
+  const [placements, setPlacements] = useState<TPlacements>(() => createEmptyPlacements());
+  const [submittedPlacements, setSubmittedPlacements] = useState<TPlacements | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [score, setScore] = useState<QuestScore | null>(null);
+  const [deckFrontPersonId, setDeckFrontPersonId] = useState<string | null>(null);
+  const [score, setScore] = useState<TQuestScore | null>(null);
   const [scrollLocked, setScrollLocked] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [inspectOpen, setInspectOpen] = useState(false);
 
   const pendingPromptRef = useRef("");
-  const cellMeasureRefs = useRef<Partial<Record<AlignmentKey, React.ElementRef<typeof View> | null>>>({});
-  const cellRects = useRef<Partial<Record<AlignmentKey, { x: number; y: number; width: number; height: number }>>>({});
+  const promptInputRef = useRef<React.ElementRef<typeof TextInput> | null>(null);
+  const pendingQuestOptsRef = useRef<{ requiredNames?: string[]; randomSeed?: string; forceLlm?: boolean } | undefined>(
+    undefined,
+  );
+  const cellMeasureRefs = useRef<Partial<Record<TAlignmentKey, React.ElementRef<typeof View> | null>>>({});
+  const cellRects = useRef<Partial<Record<TAlignmentKey, { x: number; y: number; width: number; height: number }>>>({});
   const deckShake = useSharedValue(0);
   const scoreBurst = useSharedValue(1);
   const conjureCarouselRef = useRef<ScrollView>(null);
+  const deckFanScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     void preloadGameSfx();
@@ -95,16 +226,19 @@ function App() {
 
     setGeneratingSubPhase("draft");
     setGeneratingPreviewBoard(null);
+    setGenerationStatus("Drafting the quest…");
 
     let cancelled = false;
     const topic = pendingPromptRef.current;
 
     void (async () => {
       try {
-        const nextBoard = await resolveQuestBoard(topic);
+        setGenerationStatus(getOpenAiApiKey() ? "Summoning the cast of nine…" : "Searching starter realms…");
+        const nextBoard = await resolveQuestBoard(topic, pendingQuestOptsRef.current);
         if (cancelled) {
           return;
         }
+        setGenerationStatus("Binding the fates…");
         if (!getOpenAiApiKey()) {
           setBoard(nextBoard);
           setPlacements(createEmptyPlacements());
@@ -117,10 +251,12 @@ function App() {
         }
         setGeneratingSubPhase("portraits");
         setGeneratingPreviewBoard(nextBoard);
+        setGenerationStatus(`Painting portraits (${portraitProviderLabel()})…`);
         const withPortraits = await attachPortraitsToBoard(nextBoard, {
-          onPersonUpdated: ({ board: b }) => {
+          onPersonUpdated: ({ board: b, person }) => {
             if (!cancelled) {
               setGeneratingPreviewBoard(b);
+              setGenerationStatus(`Painting: ${person.name}`);
             }
           },
         });
@@ -176,6 +312,25 @@ function App() {
 
   const selectedPerson = selectedPersonId && board ? (peopleById[selectedPersonId] ?? null) : null;
 
+  const inspectRoster = board?.palette ?? [];
+  const inspectIndex = useMemo(() => {
+    if (!selectedPersonId) return -1;
+    return inspectRoster.findIndex((p) => p.id === selectedPersonId);
+  }, [inspectRoster, selectedPersonId]);
+
+  const cycleInspect = useCallback(
+    (dir: -1 | 1) => {
+      if (!inspectRoster.length) return;
+      const idx = inspectIndex >= 0 ? inspectIndex : 0;
+      const next = (idx + dir + inspectRoster.length) % inspectRoster.length;
+      const nextPerson = inspectRoster[next];
+      if (nextPerson) {
+        setSelectedPersonId(nextPerson.id);
+      }
+    },
+    [inspectIndex, inspectRoster],
+  );
+
   const canSubmit =
     phase === "sorting" &&
     board &&
@@ -229,18 +384,19 @@ function App() {
     const maxTilt = n <= 1 ? 0 : Math.min(16, 5 + n * 0.9);
     const sigilSize = Math.round(Math.min(56, cardW * 0.52));
     const cardBodyMinH = sigilSize + 52;
-    return { inner, cardW, overlap, maxTilt, sigilSize, cardBodyMinH };
+    const fanSpan = cardW + (n - 1) * Math.max(0, cardW - overlap);
+    return { inner, cardW, overlap, maxTilt, sigilSize, cardBodyMinH, fanSpan };
   }, [width, insets.left, insets.right, sortingDeckPeople.length]);
 
   const commitPlacement = useCallback(
-    (personId: string, targetAlignment: AlignmentKey) => {
+    (personId: string, targetAlignment: TAlignmentKey) => {
       if (phase !== "sorting") {
         return;
       }
       setSelectedPersonId(null);
       setPlacements((current) => {
         const next = { ...current };
-        const originCell = Object.entries(current).find(([, id]) => id === personId)?.[0] as AlignmentKey | undefined;
+        const originCell = Object.entries(current).find(([, id]) => id === personId)?.[0] as TAlignmentKey | undefined;
         const targetOccupant = current[targetAlignment];
         if (originCell) {
           next[originCell] = targetOccupant ?? null;
@@ -281,7 +437,7 @@ function App() {
     ).then(() => {});
   }, []);
 
-  const hitTest = useCallback((px: number, py: number): AlignmentKey | null => {
+  const hitTest = useCallback((px: number, py: number): TAlignmentKey | null => {
     for (const key of alignmentOrder) {
       const r = cellRects.current[key];
       if (!r || r.width <= 0 || r.height <= 0) {
@@ -335,7 +491,25 @@ function App() {
   }, [phase, score, scoreBurst]);
 
   const beginQuestGeneration = useCallback(() => {
-    pendingPromptRef.current = prompt.trim();
+    // Blur the prompt field so its caret doesn't linger over the loading card (notably on iOS/web).
+    promptInputRef.current?.blur();
+    Keyboard.dismiss();
+
+    const raw = prompt.trim();
+    const looksLikeNameList = raw.includes(",") || raw.includes("\n") || raw.includes(";");
+    const names = looksLikeNameList ? parseCastNames(raw) : [];
+
+    if (!raw) {
+      pendingPromptRef.current = "Surprise me (random cast)";
+      pendingQuestOptsRef.current = { randomSeed: String(Date.now()), forceLlm: true };
+    } else if (names.length > 0) {
+      const requiredNames = names.slice(0, 9);
+      pendingPromptRef.current = `Custom cast: ${requiredNames.join(", ")}`;
+      pendingQuestOptsRef.current = { requiredNames, randomSeed: String(Date.now()), forceLlm: true };
+    } else {
+      pendingPromptRef.current = raw;
+      pendingQuestOptsRef.current = undefined;
+    }
     setGenerationError(null);
     setPhase("generating");
   }, [prompt]);
@@ -361,7 +535,7 @@ function App() {
     setSelectedPersonId((current) => (current === personId ? null : personId));
   };
 
-  const handlePlaceSelected = (targetAlignment: AlignmentKey) => {
+  const handlePlaceSelected = (targetAlignment: TAlignmentKey) => {
     if (!selectedPersonId || phase !== "sorting") {
       return;
     }
@@ -371,7 +545,7 @@ function App() {
     hapticLight();
   };
 
-  const handleClearCell = (targetAlignment: AlignmentKey) => {
+  const handleClearCell = (targetAlignment: TAlignmentKey) => {
     if (phase !== "sorting") {
       return;
     }
@@ -414,9 +588,14 @@ function App() {
   return (
     <View style={styles.appShell}>
       <StatusBar style="light" />
-      <View pointerEvents="none" style={styles.backgroundGlowOne} />
-      <View pointerEvents="none" style={styles.backgroundGlowTwo} />
-      <View pointerEvents="none" style={styles.backgroundGlowThree} />
+
+      <PersonInspectModal
+        open={inspectOpen && phase === "sorting" && Boolean(selectedPerson)}
+        person={selectedPerson}
+        onClose={() => setInspectOpen(false)}
+        onPrev={() => cycleInspect(-1)}
+        onNext={() => cycleInspect(1)}
+      />
 
       <View style={[styles.topBar, { paddingTop: insets.top, backgroundColor: "#000000" }]}>
         <View style={styles.topBarRow}>
@@ -468,15 +647,34 @@ function App() {
 
               <Text style={styles.idleTitle}>Name thy cast</Text>
 
-              <TextInput
-                value={prompt}
-                onChangeText={setPrompt}
-                placeholder="Thy quarry—knights of the Round Table, rogue stars, rival guilds…"
-                placeholderTextColor={colors.parchmentMuted}
-                style={[styles.questInput, styles.idleQuestInput]}
-                autoCapitalize="sentences"
-                autoCorrect={false}
-              />
+              <View style={[styles.questInputRow, styles.idleQuestInput]}>
+                <TextInput
+                  ref={promptInputRef}
+                  value={prompt}
+                  onChangeText={setPrompt}
+                  placeholder="Thy quarry—knights of the Round Table, rogue stars, rival guilds…"
+                  placeholderTextColor={colors.parchmentMuted}
+                  style={[styles.questInput, styles.questInputFlex]}
+                  autoCapitalize="sentences"
+                  autoCorrect={false}
+                />
+                {prompt.trim().length ? (
+                  <Pressable
+                    onPress={() => {
+                      setPrompt("");
+                      setGenerationError(null);
+                      void playGameSfx("tap");
+                      hapticLight();
+                    }}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear custom topic"
+                    style={({ pressed }) => [styles.questInputClear, pressed ? styles.pressed : undefined]}
+                  >
+                    <Text style={styles.questInputClearText}>×</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <PrimaryButton label="Commence" onPress={beginQuestGeneration} />
 
               <Text style={[styles.idleSectionLabel, styles.idleStartersLabel]}>Starter realms</Text>
@@ -498,6 +696,7 @@ function App() {
                       }}
                       style={({ pressed }) => [
                         styles.topicCard,
+                        shadow.card,
                         { flexBasis: isTablet ? "31%" : "47%" },
                         selected ? styles.topicCardSelected : undefined,
                         pressed ? styles.topicCardPressed : undefined,
@@ -518,6 +717,7 @@ function App() {
           <View style={styles.sectionStack}>
             <GlassCard style={styles.emptyQuestCard}>
               <Text style={styles.emptyQuestTitle}>Conjuring…</Text>
+              <ConjureLoader label={generationStatus} />
               {generatingSubPhase === "draft" ? (
                 <>
                   <Text style={styles.emptyQuestBody}>Drafting the quest…</Text>
@@ -551,13 +751,17 @@ function App() {
                         {person.name}
                       </Text>
                       <View style={[styles.conjurePreviewArt, { backgroundColor: `${person.accent}22` }]}>
-                        <SigilPortrait
-                          personId={person.id}
-                          accent={person.accent}
-                          size={CONJURE_PREVIEW_SIGIL}
-                          accessibilityLabel={person.name}
-                          portraitUri={person.portraitUri}
-                        />
+                        {person.portraitUri ? (
+                          <SigilPortrait
+                            personId={person.id}
+                            accent={person.accent}
+                            size={CONJURE_PREVIEW_SIGIL}
+                            accessibilityLabel={person.name}
+                            portraitUri={person.portraitUri}
+                          />
+                        ) : (
+                          <ShadowFigure size={CONJURE_PREVIEW_SIGIL} />
+                        )}
                       </View>
                     </View>
                   ))}
@@ -583,21 +787,28 @@ function App() {
             ) : null}
 
             {selectedPerson && phase === "sorting" ? (
-              <GlassCard style={styles.selectedCard} accentColor={selectedPerson.accent}>
-                <Text style={styles.selectedLabel}>Selected</Text>
-                <View style={styles.selectedRow}>
-                  <SigilPortrait
-                    personId={selectedPerson.id}
-                    accent={selectedPerson.accent}
-                    size={52}
-                    accessibilityLabel={selectedPerson.name}
-                    portraitUri={selectedPerson.portraitUri}
-                  />
-                  <Text style={styles.selectedText}>
-                    {selectedPerson.name} — {selectedPerson.role}
-                  </Text>
-                </View>
-              </GlassCard>
+              <Pressable
+                onPress={() => setInspectOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open selected card details"
+                style={({ pressed }) => [pressed ? styles.pressed : undefined]}
+              >
+                <GlassCard style={styles.selectedCard} accentColor={selectedPerson.accent}>
+                  <Text style={styles.selectedLabel}>Selected</Text>
+                  <View style={styles.selectedRow}>
+                    <SigilPortrait
+                      personId={selectedPerson.id}
+                      accent={selectedPerson.accent}
+                      size={52}
+                      accessibilityLabel={selectedPerson.name}
+                      portraitUri={selectedPerson.portraitUri}
+                    />
+                    <Text style={styles.selectedText}>
+                      {selectedPerson.name} — {selectedPerson.role}
+                    </Text>
+                  </View>
+                </GlassCard>
+              </Pressable>
             ) : null}
 
             <View style={styles.boardWrap}>
@@ -710,71 +921,59 @@ function App() {
 
             {phase === "sorting" ? (
               <View style={styles.deckSection}>
-                <View style={styles.deckHeaderBlock}>
-                  <Text style={styles.deckTitle}>Deck ({sortingDeckPeople.length})</Text>
-                  <Text style={styles.deckHint}>
-                    Tap a name or card to select, drag a fanned card onto the grid, or tap a cell after selecting.
-                  </Text>
-                </View>
-
-                <ScrollView
-                  horizontal
-                  nestedScrollEnabled
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.deckNameStrip}
-                  contentContainerStyle={styles.deckNameStripContent}
-                  keyboardShouldPersistTaps="always"
-                >
-                  {sortingDeckPeople.map((person) => {
-                    const active = selectedPersonId === person.id;
-                    return (
-                      <Pressable
-                        key={`chip-${person.id}`}
-                        onPress={() => handleSelectPerson(person.id)}
-                        style={({ pressed }) => [
-                          styles.deckNameChip,
-                          { borderColor: active ? person.accent : colors.panelBorder },
-                          active ? { backgroundColor: `${person.accent}18` } : undefined,
-                          pressed ? styles.pressed : undefined,
-                        ]}
-                      >
-                        <Text style={styles.deckNameChipText} numberOfLines={2}>
-                          {person.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-
                 <View style={[styles.deckFanOuter, { minHeight: deckFanMetrics.cardBodyMinH + 56 }]}>
-                  <Animated.View style={deckShakeStyle}>
-                    <View style={styles.deckFanRow}>
-                      {sortingDeckPeople.map((person, i) => {
-                        const n = sortingDeckPeople.length;
-                        const active = selectedPersonId === person.id;
-                        const mid = (n - 1) / 2;
-                        const t = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
-                        const tiltDeg = t * deckFanMetrics.maxTilt;
-                        const liftPx = n <= 1 ? 0 : Math.abs(i - mid) * 2.2;
-                        return (
-                          <DeckFanCard
-                            key={person.id}
-                            person={person}
-                            cardW={deckFanMetrics.cardW}
-                            marginLeft={i === 0 ? 0 : -deckFanMetrics.overlap}
-                            zIndex={active ? 200 : i}
-                            minHeight={deckFanMetrics.cardBodyMinH}
-                            sigilSize={deckFanMetrics.sigilSize}
-                            tiltDeg={tiltDeg}
-                            liftPx={liftPx}
-                            active={active}
-                            onTap={() => handleSelectPerson(person.id)}
-                            onDragBegin={handleDeckDragBegin}
-                            onDragEnd={handleDeckDragEnd(person.id)}
-                          />
-                        );
-                      })}
-                    </View>
+                  <Animated.View style={[deckShakeStyle, { width: "100%" }]}>
+                    <ScrollView
+                      ref={deckFanScrollRef}
+                      horizontal
+                      nestedScrollEnabled
+                      removeClippedSubviews={false}
+                      showsHorizontalScrollIndicator={false}
+                      style={[
+                        styles.deckFanScroller,
+                        { width: "100%", height: deckFanMetrics.cardBodyMinH + 56, overflow: "visible" },
+                      ]}
+                      contentContainerStyle={[
+                        styles.deckFanScrollContent,
+                        { minWidth: deckFanMetrics.inner, paddingHorizontal: 8 },
+                      ]}
+                    >
+                      <View style={styles.deckFanRow}>
+                        {sortingDeckPeople.map((person, i) => {
+                          const n = sortingDeckPeople.length;
+                          const selected = selectedPersonId === person.id;
+                          const front = deckFrontPersonId === person.id;
+                          const mid = (n - 1) / 2;
+                          const t = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
+                          const tiltDeg = t * deckFanMetrics.maxTilt;
+                          // Lift the center of the fan (edges sit lower).
+                          const liftPx = n <= 1 ? 0 : (1 - Math.abs(t)) * 12;
+
+                          return (
+                            <DeckFanCard
+                              key={person.id}
+                              person={person}
+                              cardW={deckFanMetrics.cardW}
+                              marginLeft={i === 0 ? 0 : -deckFanMetrics.overlap}
+                              zIndex={selected || front ? 300 : Math.round(100 - Math.abs(i - mid))}
+                              minHeight={deckFanMetrics.cardBodyMinH}
+                              sigilSize={deckFanMetrics.sigilSize}
+                              tiltDeg={tiltDeg}
+                              liftPx={liftPx}
+                              active={selected}
+                              bringToFront={selected || front}
+                              onFrontBegin={() => setDeckFrontPersonId(person.id)}
+                              onFrontEnd={() =>
+                                setDeckFrontPersonId((current) => (current === person.id && !selected ? null : current))
+                              }
+                              onTap={() => handleSelectPerson(person.id)}
+                              onDragBegin={handleDeckDragBegin}
+                              onDragEnd={handleDeckDragEnd(person.id)}
+                            />
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
                   </Animated.View>
                 </View>
               </View>
@@ -918,11 +1117,27 @@ function PrimaryButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.primaryButton,
+        shadow.card,
         disabled ? styles.disabledButton : undefined,
         pressed && !disabled ? styles.pressed : undefined,
       ]}
     >
-      <Text style={styles.primaryButtonText}>{label}</Text>
+      <View style={styles.primaryButtonFill}>
+        {!SUPPORTS_NATIVE_BLUR ? <View pointerEvents="none" style={styles.primaryButtonWebBlurFallback} /> : null}
+        {SUPPORTS_NATIVE_BLUR ? (
+          <BlurView
+            pointerEvents="none"
+            intensity={24}
+            tint="light"
+            style={StyleSheet.absoluteFillObject}
+          />
+        ) : null}
+        <View pointerEvents="none" style={styles.primaryButtonTint} />
+        <View pointerEvents="none" style={styles.primaryButtonEdgeGlow} />
+        <View pointerEvents="none" style={styles.primaryButtonSheenTop} />
+        <View pointerEvents="none" style={styles.primaryButtonSheenSweep} />
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -938,37 +1153,131 @@ function SecondaryButton({ label, onPress }: { label: string; onPress: () => voi
   );
 }
 
+function alignmentToCellHint(alignment: TAlignmentKey): { headline: string; body: string } {
+  const parts = alignment.split("-");
+  const ethic = parts[0] ?? "neutral";
+  const moral = parts[1] ?? "neutral";
+  const cap = (value: string, fallback: string) => {
+    if (!value) return fallback;
+    return value[0] ? value[0].toUpperCase() + value.slice(1) : fallback;
+  };
+
+  const ethicLabel = ethic === "true" ? "Neutral" : cap(ethic, "Neutral");
+  const moralLabel = cap(moral, "Neutral");
+
+  if (alignment === "true-neutral") {
+    return {
+      headline: "My gut: dead center.",
+      body: "Leans Neutral on both axes—if any square feels like the calm eye of the storm, it’s that one.",
+    };
+  }
+
+  return {
+    headline: `My gut: ${ethicLabel} × ${moralLabel}.`,
+    body: `Likely sits in the ${moralLabel} row and the ${ethicLabel} column (but trust your table instincts).`,
+  };
+}
+
+function PersonInspectModal({
+  open,
+  person,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  open: boolean;
+  person: TPersonCard | null;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  if (!person) return null;
+  const hint = alignmentToCellHint(person.alignment);
+
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.inspectBackdrop}>
+        {!SUPPORTS_NATIVE_BLUR ? <View pointerEvents="none" style={styles.inspectWebBlurFallback} /> : null}
+        {SUPPORTS_NATIVE_BLUR ? (
+          <BlurView pointerEvents="none" intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+        ) : null}
+
+        <View style={styles.inspectSheet}>
+          <View style={styles.inspectTopRow}>
+            <View style={styles.inspectTitleBlock}>
+              <Text style={styles.inspectName} numberOfLines={1}>
+                {person.name}
+              </Text>
+              <Text style={styles.inspectRole} numberOfLines={2}>
+                {person.role}
+              </Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel="Close card preview"
+              style={({ pressed }) => [styles.inspectClose, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={styles.inspectCloseText}>×</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.inspectPortraitWrap}>
+            <View style={[styles.inspectPortraitFrame, { borderColor: `${person.accent}66` }]}>
+              <SigilPortrait
+                personId={person.id}
+                accent={person.accent}
+                size={224}
+                accessibilityLabel={person.name}
+                portraitUri={person.portraitUri}
+              />
+            </View>
+          </View>
+
+          <GlassCard style={styles.inspectHintCard} accentColor={person.accent}>
+            <Text style={styles.inspectHintHeadline}>{hint.headline}</Text>
+            <Text style={styles.inspectHintBody}>{hint.body}</Text>
+            {person.hint ? <Text style={styles.inspectHintBodyMuted}>{person.hint}</Text> : null}
+            {person.clueTags?.length ? (
+              <View style={styles.inspectTagsRow}>
+                {(person.clueTags ?? []).slice(0, 5).map((tag: string) => (
+                  <View key={tag} style={styles.inspectTag}>
+                    <Text style={styles.inspectTagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </GlassCard>
+
+          <View style={styles.inspectControls}>
+            <Pressable
+              onPress={onPrev}
+              accessibilityRole="button"
+              accessibilityLabel="Previous card"
+              style={({ pressed }) => [styles.inspectControlBtn, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={styles.inspectControlText}>Prev</Text>
+            </Pressable>
+            <Pressable
+              onPress={onNext}
+              accessibilityRole="button"
+              accessibilityLabel="Next card"
+              style={({ pressed }) => [styles.inspectControlBtn, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={styles.inspectControlText}>Next</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   appShell: {
     flex: 1,
     backgroundColor: "#0c0c10",
-  },
-  backgroundGlowOne: {
-    position: "absolute",
-    top: -120,
-    right: -80,
-    width: 260,
-    height: 260,
-    borderRadius: 999,
-    backgroundColor: "rgba(83, 167, 255, 0.16)",
-  },
-  backgroundGlowTwo: {
-    position: "absolute",
-    top: 220,
-    left: -120,
-    width: 260,
-    height: 260,
-    borderRadius: 999,
-    backgroundColor: "rgba(255, 102, 196, 0.12)",
-  },
-  backgroundGlowThree: {
-    position: "absolute",
-    bottom: 120,
-    right: -90,
-    width: 240,
-    height: 240,
-    borderRadius: 999,
-    backgroundColor: "rgba(255, 216, 77, 0.1)",
   },
   topBar: {
     borderBottomWidth: 1,
@@ -1035,6 +1344,21 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
     marginBottom: 10,
   },
+  idleProviderPill: {
+    alignSelf: "flex-start",
+    marginTop: -4,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    color: colors.parchmentMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
   idleQuestInput: {
     marginTop: 4,
     marginBottom: 12,
@@ -1064,9 +1388,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.panelBorder,
-    backgroundColor: "rgba(13, 17, 29, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(67, 58, 122, 0.92)",
+    backgroundColor: "rgba(10, 12, 22, 0.92)",
     gap: 4,
   },
   topicCardSelected: {
@@ -1138,6 +1462,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
+  },
+  questInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  questInputFlex: {
+    flex: 1,
+    width: undefined,
+  },
+  questInputClear: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    flexShrink: 0,
+  },
+  questInputClearText: {
+    color: colors.parchmentMuted,
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: "800",
   },
   topicLine: {
     color: colors.parchmentMuted,
@@ -1237,9 +1587,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   boardCellEmpty: {
-    borderColor: "rgba(255,255,255,0.12)",
-    borderStyle: "dashed",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(67, 58, 122, 0.7)",
+    borderStyle: "solid",
+    backgroundColor: "rgba(10, 12, 22, 0.88)",
   },
   boardCellFilled: {
     borderColor: "rgba(83, 167, 255, 0.36)",
@@ -1300,60 +1650,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
   },
-  deckHeaderBlock: {
-    gap: 6,
-  },
-  deckTitle: {
-    color: colors.parchment,
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1.1,
-  },
-  deckHint: {
-    color: colors.parchmentMuted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  deckNameStrip: {
-    minHeight: 56,
-    maxHeight: 92,
-    flexGrow: 0,
-  },
-  deckNameStripContent: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 4,
-  },
-  deckNameChip: {
-    maxWidth: 160,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    backgroundColor: "rgba(18, 22, 40, 0.92)",
-  },
-  deckNameChipText: {
-    color: colors.parchment,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
   deckFanOuter: {
     width: "100%",
     alignItems: "center",
-    justifyContent: "flex-end",
-    paddingTop: 8,
-    paddingBottom: 10,
+    justifyContent: "center",
+    paddingTop: 0,
+    paddingBottom: 0,
     overflow: "visible",
+  },
+  deckFanScroller: {
+    overflow: "visible",
+  },
+  deckFanScrollContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 0,
   },
   deckFanRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   resultTitle: {
     color: colors.lawful,
@@ -1479,10 +1795,54 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 54,
     borderRadius: 16,
-    backgroundColor: "#ff4046",
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 64, 70, 0.32)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
+  },
+  primaryButtonFill: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  primaryButtonWebBlurFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  primaryButtonTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 64, 70, 0.6)",
+  },
+  primaryButtonEdgeGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.28)",
+  },
+  primaryButtonSheenTop: {
+    position: "absolute",
+    top: -18,
+    left: -40,
+    right: -40,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.16)",
+  },
+  primaryButtonSheenSweep: {
+    position: "absolute",
+    top: -60,
+    left: -120,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    transform: [{ rotate: "-18deg" }],
   },
   primaryButtonText: {
     color: colors.parchment,
@@ -1514,6 +1874,139 @@ const styles = StyleSheet.create({
     opacity: 0.88,
     transform: [{ scale: 0.98 }],
   },
+  inspectBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  inspectWebBlurFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(10, 12, 22, 0.78)",
+  },
+  inspectSheet: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(18, 22, 40, 0.9)",
+    padding: 16,
+    gap: 14,
+  },
+  inspectTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  inspectTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  inspectName: {
+    color: colors.parchment,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  inspectRole: {
+    color: colors.parchmentMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  inspectClose: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    flexShrink: 0,
+  },
+  inspectCloseText: {
+    color: colors.parchment,
+    fontSize: 28,
+    lineHeight: 28,
+    fontWeight: "800",
+    marginTop: -2,
+  },
+  inspectPortraitWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  inspectPortraitFrame: {
+    borderRadius: 999,
+    padding: 10,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  inspectHintCard: {
+    gap: 8,
+  },
+  inspectHintHeadline: {
+    color: colors.brassBright,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  inspectHintBody: {
+    color: colors.parchment,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  inspectHintBodyMuted: {
+    color: colors.parchmentMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  inspectTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  inspectTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  inspectTagText: {
+    color: colors.parchmentMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  inspectControls: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  inspectControlBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inspectControlText: {
+    color: colors.parchment,
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
   emptyQuestCard: {
     alignItems: "center",
     gap: 10,
@@ -1533,6 +2026,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     opacity: 0.9,
+  },
+  conjureLoaderRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 8,
+    marginTop: 2,
+  },
+  conjureLoaderDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  conjureLoaderDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: colors.verdigris,
+  },
+  conjureLoaderLabel: {
+    flex: 1,
+    color: colors.parchmentMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   conjureDeckTitle: {
     color: colors.parchment,
@@ -1569,6 +2089,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 12,
     minHeight: CONJURE_PREVIEW_SIGIL + 12,
+    overflow: "hidden",
+  },
+  shadowFigureWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    opacity: 0.85,
+  },
+  shadowFigureHead: {
+    backgroundColor: "rgba(10,14,26,0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  shadowFigureBody: {
+    backgroundColor: "rgba(10,14,26,0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  shadowFigureGlow: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 99,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    opacity: 0.15,
+    transform: [{ scaleX: 1.1 }, { scaleY: 0.85 }],
   },
 });
 

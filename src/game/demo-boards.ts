@@ -1,4 +1,4 @@
-import { AlignmentKey, Placements, QuestBoard } from "./types";
+import { TAlignmentKey, TPlacements, TQuestBoard } from "./types";
 
 const executiveCircle = {
   id: "trump-administration-demo",
@@ -131,7 +131,7 @@ const executiveCircle = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const shakespeareCourt = {
@@ -256,7 +256,7 @@ const shakespeareCourt = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const mascotMayhem = {
@@ -381,7 +381,7 @@ const mascotMayhem = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const marvelHeroes = {
@@ -505,7 +505,7 @@ const marvelHeroes = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const actionBlockbusters = {
@@ -629,7 +629,7 @@ const actionBlockbusters = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const ttrpgParty = {
@@ -752,7 +752,7 @@ const ttrpgParty = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 const videoGameSquad = {
@@ -875,15 +875,15 @@ const videoGameSquad = {
   title: string;
   subtitle: string;
   disclaimer: string;
-  people: QuestBoard["palette"];
+  people: TQuestBoard["palette"];
 };
 
 export const defaultPrompt = "Marvel characters";
 
-export type SuggestedTopic = { label: string; prompt: string; emoji: string; hook: string };
+export type TSuggestedTopic = { label: string; prompt: string; emoji: string; hook: string };
 
 /** Shown in the app as tappable quick starts (each maps to a keyword match or a custom cast). */
-export const suggestedTopics: SuggestedTopic[] = [
+export const suggestedTopics: TSuggestedTopic[] = [
   { label: "Marvel", prompt: "Marvel characters", emoji: "🦸", hook: "Capes, quips, cosmic stakes" },
   { label: "Action stars", prompt: "action movie icons", emoji: "🎬", hook: "Charisma cranked to eleven" },
   { label: "D&D / RPG", prompt: "my D&D party", emoji: "🎲", hook: "Your table, nine alignments" },
@@ -972,7 +972,7 @@ const boardMap: Array<{ keywords: string[]; board: typeof executiveCircle }> = [
   },
 ];
 
-function toAnswerKey(people: QuestBoard["palette"]): Placements {
+function toAnswerKey(people: TQuestBoard["palette"]): TPlacements {
   return people.reduce(
     (placements, person) => {
       placements[person.alignment] = person.id;
@@ -988,13 +988,13 @@ function toAnswerKey(people: QuestBoard["palette"]): Placements {
       "lawful-evil": null,
       "neutral-evil": null,
       "chaotic-evil": null,
-    } as Placements
+    } as TPlacements
   );
 }
 
 const EXPECTED_CELLS = 9;
 
-function cloneBoard(source: typeof executiveCircle): QuestBoard {
+function cloneBoard(source: typeof executiveCircle): TQuestBoard {
   if (source.people.length !== EXPECTED_CELLS) {
     throw new Error(`Cast "${source.id}" must have ${EXPECTED_CELLS} people for the 3x3 board.`);
   }
@@ -1013,7 +1013,7 @@ function cloneBoard(source: typeof executiveCircle): QuestBoard {
  * Returns a hand-authored demo cast when the prompt matches known keywords; otherwise null.
  * Custom topics are resolved asynchronously via `resolveQuestBoard` (OpenAI).
  */
-export function tryKeywordDemoBoard(prompt: string): QuestBoard | null {
+export function tryKeywordDemoBoard(prompt: string): TQuestBoard | null {
   const trimmed = prompt.trim();
   if (!trimmed) {
     return null;
@@ -1035,7 +1035,7 @@ export function tryKeywordDemoBoard(prompt: string): QuestBoard | null {
 /**
  * @deprecated Prefer `resolveQuestBoard` — this only returns keyword demos and throws otherwise.
  */
-export function generateBoard(prompt: string): QuestBoard {
+export function generateBoard(prompt: string): TQuestBoard {
   const board = tryKeywordDemoBoard(prompt);
   if (!board) {
     throw new Error("No keyword demo matched; use resolveQuestBoard() for custom topics.");
@@ -1046,7 +1046,7 @@ export function generateBoard(prompt: string): QuestBoard {
 /** @deprecated Use `resolveQuestBoard` */
 export const buildDemoBoard = generateBoard;
 
-export function getAlignmentLabel(alignment: AlignmentKey): string {
+export function getAlignmentLabel(alignment: TAlignmentKey): string {
   switch (alignment) {
     case "lawful-good":
       return "Lawful Good";

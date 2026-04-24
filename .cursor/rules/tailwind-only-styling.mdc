@@ -1,0 +1,22 @@
+---
+description: Enforce Tailwind-only styling (no StyleSheet/CSS)
+alwaysApply: true
+---
+
+# Tailwind-only styling
+
+This project uses **Tailwind utility classes** for styling everywhere.
+
+- **Do not create or edit `.css` / `.scss` / `.sass`** files.
+- **Do not use `StyleSheet.create(...)`** for new or refactored UI.
+- **Prefer `className="..."`** on React Native / React Native Web components (via NativeWind).
+- **Avoid inline `style={...}`** unless the value is truly dynamic (computed at runtime) and cannot reasonably be expressed with Tailwind utilities.
+  - Allowed examples: dynamic sizes/positions from measurements (`width: cellSize`), dynamic colors from runtime data (`borderColor: accent`).
+  - When using `style`, keep it to the smallest possible object and keep the rest in `className`.
+
+## Patterns
+
+- Use `className` for spacing, layout, typography, borders, shadows, opacity.
+- For absolute fill, use `className="absolute inset-0"`.
+- For press feedback, prefer toggling classes in the `Pressable` style callback (e.g. add `"opacity-90"` / `"scale-[0.98]"` when `pressed`).
+

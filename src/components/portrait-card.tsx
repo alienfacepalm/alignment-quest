@@ -1,12 +1,12 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { PersonCard } from "../game/types";
+import { TPersonCard } from "../game/types";
 import { colors, shadow } from "../theme";
 import { SigilPortrait } from "./sigil-portrait";
 
-type Props = {
-  person: PersonCard;
+type TProps = {
+  person: TPersonCard;
   selected?: boolean;
   compact?: boolean;
   onPress?: () => void;
@@ -19,7 +19,7 @@ export function PortraitCard({
   compact = false,
   onPress,
   footerLabel,
-}: Props) {
+}: TProps) {
   const body = (
     <View
       style={[

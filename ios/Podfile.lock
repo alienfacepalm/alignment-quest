@@ -30,6 +30,8 @@ PODS:
     - ExpoModulesCore
   - ExpoAudio (55.0.14):
     - ExpoModulesCore
+  - ExpoBlur (55.0.14):
+    - ExpoModulesCore
   - ExpoDomWebView (55.0.5):
     - ExpoModulesCore
   - ExpoFileSystem (55.0.17):
@@ -2097,6 +2099,7 @@ DEPENDENCIES:
   - "Expo (from `../node_modules/.pnpm/expo@55.0.17_@babel+core@7.29.0_@expo+dom-webview@55.0.5_@expo+metro-runtime@55.0.10_re_4f11ac03946333fde22b77585a476be3/node_modules/expo`)"
   - "ExpoAsset (from `../node_modules/.pnpm/expo-asset@55.0.16_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-native+me_0c9c244e3f142ff8520d31621f8cdd4b/node_modules/expo-asset/ios`)"
   - "ExpoAudio (from `../node_modules/.pnpm/expo-audio@55.0.14_expo-asset@55.0.16_expo@55.0.17_react-native@0.83.6_@babel+core@7.29_666301337900d791e6541ee5c973833e/node_modules/expo-audio/ios`)"
+  - "ExpoBlur (from `../node_modules/.pnpm/expo-blur@55.0.14_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-native+met_d5759f7b8e835fb8901785a999ec36b3/node_modules/expo-blur/ios`)"
   - "ExpoDomWebView (from `../node_modules/.pnpm/@expo+dom-webview@55.0.5_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-nat_b458e62b76be084f2d0fdd188d05ba8d/node_modules/@expo/dom-webview/ios`)"
   - "ExpoFileSystem (from `../node_modules/.pnpm/expo-file-system@55.0.17_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-nat_ba8d58e644e8ed424c924ed33a697c8d/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../node_modules/.pnpm/expo-font@55.0.6_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-native+metr_6ee12e5823c5727b3a53923c4fc217bc/node_modules/expo-font/ios`)"
@@ -2193,6 +2196,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/expo-asset@55.0.16_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-native+me_0c9c244e3f142ff8520d31621f8cdd4b/node_modules/expo-asset/ios"
   ExpoAudio:
     :path: "../node_modules/.pnpm/expo-audio@55.0.14_expo-asset@55.0.16_expo@55.0.17_react-native@0.83.6_@babel+core@7.29_666301337900d791e6541ee5c973833e/node_modules/expo-audio/ios"
+  ExpoBlur:
+    :path: "../node_modules/.pnpm/expo-blur@55.0.14_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-native+met_d5759f7b8e835fb8901785a999ec36b3/node_modules/expo-blur/ios"
   ExpoDomWebView:
     :path: "../node_modules/.pnpm/@expo+dom-webview@55.0.5_expo@55.0.17_react-native@0.83.6_@babel+core@7.29.0_@react-nat_b458e62b76be084f2d0fdd188d05ba8d/node_modules/@expo/dom-webview/ios"
   ExpoFileSystem:
@@ -2370,6 +2375,7 @@ SPEC CHECKSUMS:
   Expo: c79996d5f6184eb844af559e2647fac4b4f74091
   ExpoAsset: e5a93c1082e763fb7b59a0b3a16c38224ba07f8a
   ExpoAudio: bb9b02133e7ed48b18a58a5fad9a7a90289fa94d
+  ExpoBlur: 08afa305ca20b1adb0b580fd3b09a38b64ce8804
   ExpoDomWebView: 4937eda7ff9112ddcb8701b52ae4e8e9c2e181b5
   ExpoFileSystem: 3bfa8832f75bf8fac0541db51e962f3e8ac8d655
   ExpoFont: e4fe17baebfe22a21576d6efd8f27b0dad06d653

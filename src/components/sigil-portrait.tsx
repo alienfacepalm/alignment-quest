@@ -1,16 +1,74 @@
 import React, { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
-type Props = {
+type TProps = {
   personId: string;
   accent: string;
   size?: number;
   accessibilityLabel?: string;
   /** Local `file://`, remote `https://`, or `data:` URI from image generation. */
   portraitUri?: string;
+  shape?: "circle" | "rounded-square";
 };
+
+function StylizedGridBackground({ size, accent, radius }: { size: number; accent: string; radius: number }) {
+  const spacing = Math.max(8, Math.round(size / 6));
+  const inset = Math.max(6, Math.round(size * 0.08));
+
+  const positions = useMemo(() => {
+    const count = Math.floor((size + inset * 2) / spacing);
+    return Array.from({ length: Math.max(6, count) }, (_unused, index) => -inset + index * spacing);
+  }, [inset, size, spacing]);
+
+  return (
+    <View pointerEvents="none" className="absolute -inset-2 overflow-hidden" style={{ borderRadius: radius }}>
+      {/* faint tint */}
+      <View className="absolute inset-0" style={{ backgroundColor: `${accent}12` }} />
+
+      {/* grid lines */}
+      {positions.map((pos) => (
+        <View
+          key={`v-${pos}`}
+          className="absolute top-0"
+          style={{
+            left: pos,
+            width: 1,
+            height: size + inset * 2,
+            backgroundColor: `${accent}26`,
+          }}
+        />
+      ))}
+      {positions.map((pos) => (
+        <View
+          key={`h-${pos}`}
+          className="absolute left-0"
+          style={{
+            top: pos,
+            height: 1,
+            width: size + inset * 2,
+            backgroundColor: `${accent}1f`,
+          }}
+        />
+      ))}
+
+      {/* subtle diagonal accent */}
+      <View
+        className="absolute"
+        style={{
+          left: -inset,
+          top: size * 0.1,
+          width: size + inset * 2,
+          height: 1,
+          backgroundColor: `${accent}33`,
+          transform: [{ rotate: "-18deg" }],
+          opacity: 0.35,
+        }}
+      />
+    </View>
+  );
+}
 
 function hashPersonId(value: string) {
   let hash = 0;
@@ -29,30 +87,38 @@ function initialsFromId(value: string) {
     .join("");
 }
 
-export function SigilPortrait({ personId, accent, size = 64, accessibilityLabel, portraitUri }: Props) {
+export function SigilPortrait({
+  personId,
+  accent,
+  size = 64,
+  accessibilityLabel,
+  portraitUri,
+  shape = "circle",
+}: TProps) {
   const hash = useMemo(() => hashPersonId(personId), [personId]);
   const initials = useMemo(() => initialsFromId(personId), [personId]);
-  const rotation = ((hash % 7) - 3) * 6;
-  const orbOffset = size * 0.16;
   const glyphSize = Math.max(16, size * 0.34);
-  const radius = size * 0.32;
+  const radius = shape === "circle" ? size / 2 : Math.max(10, Math.round(size * 0.22));
 
-  const shellStyle = [
-    styles.shell,
-    {
-      width: size,
-      height: size,
-      borderRadius: radius,
-      borderColor: accent,
-    },
-  ];
+  const shellStyle: { width: number; height: number; borderRadius: number; borderColor: string } = {
+    width: size,
+    height: size,
+    borderRadius: radius,
+    borderColor: accent,
+  };
 
   if (portraitUri) {
     return (
-      <View accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={shellStyle}>
+      <View
+        accessibilityRole="image"
+        accessibilityLabel={accessibilityLabel}
+        className="relative items-center justify-center overflow-hidden border-2"
+        style={shellStyle}
+      >
         <Image
           source={{ uri: portraitUri }}
-          style={[styles.portraitImage, { width: size, height: size, borderRadius: radius }]}
+          className="absolute left-0 top-0"
+          style={{ width: size, height: size, borderRadius: radius }}
           resizeMode="cover"
         />
       </View>
@@ -60,82 +126,24 @@ export function SigilPortrait({ personId, accent, size = 64, accessibilityLabel,
   }
 
   return (
-    <View accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={shellStyle}>
-      <View
-        style={[
-          styles.orb,
-          {
-            width: size * 0.62,
-            height: size * 0.62,
-            borderRadius: size * 0.31,
-            top: -orbOffset * 0.2,
-            left: -orbOffset * 0.1,
-            backgroundColor: `${accent}55`,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.spark,
-          {
-            width: size * 0.28,
-            height: size * 0.28,
-            borderRadius: size * 0.14,
-            right: orbOffset * 0.15,
-            bottom: orbOffset * 0.15,
-            backgroundColor: colors.brass,
-            transform: [{ rotate: `${rotation}deg` }],
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.core,
-          {
-            width: size * 0.54,
-            height: size * 0.54,
-            borderRadius: size * 0.18,
-            transform: [{ rotate: `${rotation}deg` }],
-          },
-        ]}
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+      className="relative items-center justify-center overflow-hidden border-2"
+      style={shellStyle}
+    >
+      <Text
+        className="font-black tracking-[1px]"
+        style={{
+          color: colors.parchment,
+          fontSize: glyphSize,
+          textShadowColor: "rgba(0,0,0,0.45)",
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 6,
+        }}
       >
-        <Text style={[styles.initials, { fontSize: glyphSize }]}>{initials || "?"}</Text>
-      </View>
+        {initials || "?"}
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  shell: {
-    overflow: "hidden",
-    borderWidth: 2,
-    backgroundColor: colors.panelRaised,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  portraitImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-  orb: {
-    position: "absolute",
-  },
-  spark: {
-    position: "absolute",
-    opacity: 0.95,
-  },
-  core: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.ink,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.16)",
-  },
-  initials: {
-    color: colors.parchment,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-});

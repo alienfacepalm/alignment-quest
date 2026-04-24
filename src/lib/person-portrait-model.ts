@@ -1,13 +1,13 @@
 import { createRng, hashId, hslToRgb, rgbToHex, shirtColor } from "./portrait-from-id";
 
-export type PersonPortraitProps = {
+export type TPersonPortraitProps = {
   personId: string;
   accent: string;
   size?: number;
   accessibilityLabel?: string;
 };
 
-export type PortraitPalette = {
+export type TPortraitPalette = {
   skin: string;
   skinShadow: string;
   hair: string;
@@ -28,7 +28,7 @@ export type PortraitPalette = {
   mouthW: number;
 };
 
-function buildPalette(personId: string, accent: string, size: number): PortraitPalette {
+function buildPalette(personId: string, accent: string, size: number): TPortraitPalette {
   const rng = createRng(hashId(personId));
   const hairHue = rng() * 360;
   const hairS = 0.28 + rng() * 0.38;
@@ -76,10 +76,9 @@ function buildPalette(personId: string, accent: string, size: number): PortraitP
   };
 }
 
-/** Shared layout for Skia (native) and View (web) portrait renderers. */
-export type PortraitLayout = {
+export type TPortraitLayout = {
   size: number;
-  palette: PortraitPalette;
+  palette: TPortraitPalette;
   faceW: number;
   faceH: number;
   faceLeft: number;
@@ -107,7 +106,7 @@ export type PortraitLayout = {
   mouthCy: number;
 };
 
-export function getPortraitLayout(personId: string, accent: string, size: number): PortraitLayout {
+export function getPortraitLayout(personId: string, accent: string, size: number): TPortraitLayout {
   const palette = buildPalette(personId, accent, size);
   const faceW = size * palette.faceW;
   const faceH = size * palette.faceH;

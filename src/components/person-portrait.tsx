@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { getPortraitLayout, type PersonPortraitProps } from "../lib/person-portrait-model";
+import { getPortraitLayout, type TPersonPortraitProps } from "../lib/person-portrait-model";
 import { colors } from "../theme";
 
 /**
@@ -9,7 +9,7 @@ import { colors } from "../theme";
  * For GPU Skia rendering, use a dev build (`npx expo run:ios`) and a Skia-based variant;
  * Expo Go does not ship `RNSkiaModule`.
  */
-export function PersonPortrait({ personId, accent, size = 64, accessibilityLabel }: PersonPortraitProps) {
+export function PersonPortrait({ personId, accent, size = 64, accessibilityLabel }: TPersonPortraitProps) {
   const L = useMemo(() => getPortraitLayout(personId, accent, size), [personId, accent, size]);
   const p = L.palette;
 
@@ -160,7 +160,7 @@ export function PersonPortrait({ personId, accent, size = 64, accessibilityLabel
   );
 }
 
-export type { PersonPortraitProps } from "../lib/person-portrait-model";
+export type { TPersonPortraitProps } from "../lib/person-portrait-model";
 
 const styles = StyleSheet.create({
   shell: {

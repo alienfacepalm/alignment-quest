@@ -10,13 +10,13 @@ export const alignmentOrder = [
   "chaotic-evil",
 ] as const;
 
-export type AlignmentKey = (typeof alignmentOrder)[number];
+export type TAlignmentKey = (typeof alignmentOrder)[number];
 
-export type GamePhase = "idle" | "generating" | "sorting" | "revealed";
+export type TGamePhase = "idle" | "generating" | "sorting" | "revealed";
 
-export type Placements = Record<AlignmentKey, string | null>;
+export type TPlacements = Record<TAlignmentKey, string | null>;
 
-export type PersonCard = {
+export type TPersonCard = {
   id: string;
   name: string;
   role: string;
@@ -26,38 +26,38 @@ export type PersonCard = {
   confidence: number;
   monogram: string;
   accent: string;
-  alignment: AlignmentKey;
+  alignment: TAlignmentKey;
   /** LLM- or data-authored visual cues for image generation; optional on demo boards. */
   portraitVisual?: string;
   /** Local `file://` cache URI from OpenAI image generation, when available. */
   portraitUri?: string;
 };
 
-export type QuestBoard = {
+export type TQuestBoard = {
   id: string;
   title: string;
   subtitle: string;
   disclaimer: string;
-  palette: PersonCard[];
-  answerKey: Placements;
+  palette: TPersonCard[];
+  answerKey: TPlacements;
 };
 
 /** @deprecated Use QuestBoard */
-export type DemoBoard = QuestBoard;
+export type TDemoBoard = TQuestBoard;
 
-export type QuestGuessDetail = {
-  alignment: AlignmentKey;
+export type TQuestGuessDetail = {
+  alignment: TAlignmentKey;
   personId: string;
   correct: boolean;
-  correctAlignment: AlignmentKey;
+  correctAlignment: TAlignmentKey;
 };
 
-export type QuestScore = {
+export type TQuestScore = {
   /** 1 point per exact match; same as `exactMatches` (0–9). */
   points: number;
   exactMatches: number;
-  details: QuestGuessDetail[];
+  details: TQuestGuessDetail[];
 };
 
 /** @deprecated Use QuestScore */
-export type BoardScore = QuestScore;
+export type TBoardScore = TQuestScore;

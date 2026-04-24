@@ -1,0 +1,47 @@
+---
+description: TypeScript naming conventions: I* interfaces, T* type aliases, plus safe typing best practices
+globs: "**/*.{ts,tsx}"
+alwaysApply: true
+---
+
+# TypeScript: naming conventions + best practices
+
+## Naming
+
+- **Interfaces** must be **PascalCase** and **prefixed with `I`**.
+  - ✅ `IQuestConfig`, `IPersonPortraitModel`
+  - ❌ `QuestConfig`, `QuestConfigInterface`, `iQuestConfig`
+- **Type aliases** must be **PascalCase** and **prefixed with `T`**.
+  - ✅ `TQuestId`, `TAlignment`, `TScoreSummary`
+  - ❌ `QuestId`, `AlignmentType`, `type Alignment = ...` (without `T` prefix)
+- **Type-like generics** should use `T`-prefixed names when they represent a concrete type parameter.
+  - ✅ `function parse<TValue>(value: unknown): TValue`
+  - ✅ `type TMap<TValue> = Record<string, TValue>`
+
+## When to use interface vs type
+
+- **Prefer `interface`** for **object shapes** meant to be extended/implemented (public contracts).
+- **Prefer `type`** for **unions, intersections, primitives, and computed types**.
+
+## Best practices (project-friendly)
+
+- **No `any`**: follow the existing repo rule—use `unknown` + narrowing instead.
+- **Prefer `satisfies`** for validating object literals without widening.
+
+```ts
+const QUEST_CONFIG = {
+  deckSize: 9,
+  gridSize: 3,
+} satisfies IQuestConfig;
+```
+
+- **Prefer discriminated unions** for state machines and results.
+
+```ts
+type TResult =
+  | { kind: "ok"; value: string }
+  | { kind: "error"; message: string };
+```
+
+- **Avoid brittle assertions** (`as Foo`) unless you can justify them with runtime validation.
+

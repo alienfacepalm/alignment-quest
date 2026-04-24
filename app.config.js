@@ -26,6 +26,10 @@ module.exports = () => ({
         process.env.EXPO_PUBLIC_OPENAI_API_KEY?.trim() ||
         process.env.OPENAI_API_KEY?.trim() ||
         "",
+      xaiApiKey:
+        process.env.EXPO_PUBLIC_XAI_API_KEY?.trim() ||
+        process.env.XAI_API_KEY?.trim() ||
+        "",
     },
   },
 });

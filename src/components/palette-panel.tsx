@@ -1,16 +1,16 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
-import { GamePhase, QuestBoard } from "../game/types";
+import { TGamePhase, TQuestBoard } from "../game/types";
 import { colors, shadow } from "../theme";
 import { PortraitCard } from "./portrait-card";
 
-type Props = {
-  board: QuestBoard;
-  unplacedPeople: QuestBoard["palette"];
+type TProps = {
+  board: TQuestBoard;
+  unplacedPeople: TQuestBoard["palette"];
   selectedPersonId: string | null;
   onSelectPerson: (personId: string) => void;
-  phase: GamePhase;
+  phase: TGamePhase;
   compact: boolean;
 };
 
@@ -21,21 +21,55 @@ export function PalettePanel({
   onSelectPerson,
   phase,
   compact,
-}: Props) {
+}: TProps) {
   return (
-    <View style={[styles.panel, shadow.panel]}>
-      <Text style={styles.panelEyebrow}>Cast</Text>
-      <Text style={styles.panelTitle}>{board.title}</Text>
-      <Text style={styles.panelBody}>{board.subtitle}</Text>
+    <View
+      className="flex-1"
+      style={[
+        shadow.panel,
+        {
+          flex: 1.02,
+          minWidth: 280,
+          maxHeight: 960,
+          backgroundColor: colors.panel,
+          borderWidth: 1,
+          borderColor: colors.panelBorder,
+          borderRadius: 26,
+          padding: 16,
+          gap: 10,
+        },
+      ]}
+    >
+      <Text
+        className="text-xs font-extrabold uppercase tracking-[1.2px]"
+        style={{ color: colors.chaotic }}
+      >
+        Cast
+      </Text>
+      <Text className="text-[22px] font-black" style={{ color: colors.parchment }}>
+        {board.title}
+      </Text>
+      <Text className="text-[13px] leading-[19px]" style={{ color: colors.parchmentMuted }}>
+        {board.subtitle}
+      </Text>
 
-      <View style={styles.metaStrip}>
-        <Text style={styles.metaPill}>{phase === "revealed" ? "Answer key shown" : "Answer key hidden"}</Text>
-        <Text style={styles.metaPill}>{unplacedPeople.length} left to place</Text>
+      <View className="flex-row flex-wrap gap-2">
+        <Text
+          className="overflow-hidden rounded-full px-2.5 py-[7px] text-[11px] font-bold uppercase tracking-[0.5px]"
+          style={{ backgroundColor: colors.panelRaised, color: colors.parchment }}
+        >
+          {phase === "revealed" ? "Answer key shown" : "Answer key hidden"}
+        </Text>
+        <Text
+          className="overflow-hidden rounded-full px-2.5 py-[7px] text-[11px] font-bold uppercase tracking-[0.5px]"
+          style={{ backgroundColor: colors.panelRaised, color: colors.parchment }}
+        >
+          {unplacedPeople.length} left to place
+        </Text>
       </View>
 
       <ScrollView
-        style={styles.cardsScroller}
-        contentContainerStyle={styles.cardsContent}
+        contentContainerClassName="gap-3 pb-1.5"
         showsVerticalScrollIndicator={false}
       >
         {unplacedPeople.length ? (
@@ -50,9 +84,14 @@ export function PalettePanel({
             />
           ))
         ) : (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>Cast cleared</Text>
-            <Text style={styles.emptyBody}>
+          <View
+            className="gap-1.5 rounded-[18px] border p-[18px]"
+            style={{ borderColor: colors.panelBorder, backgroundColor: colors.panelRaised }}
+          >
+            <Text className="text-[18px] font-extrabold" style={{ color: colors.parchment }}>
+              Cast cleared
+            </Text>
+            <Text className="text-[13px] leading-[19px]" style={{ color: colors.parchmentMuted }}>
               Every card is placed. Hit reveal when you want the verdict.
             </Text>
           </View>
@@ -61,76 +100,3 @@ export function PalettePanel({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    flex: 1.02,
-    minWidth: 280,
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    borderRadius: 26,
-    padding: 16,
-    gap: 10,
-    maxHeight: 960,
-  },
-  panelEyebrow: {
-    color: colors.chaotic,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
-    fontWeight: "800",
-  },
-  panelTitle: {
-    color: colors.parchment,
-    fontSize: 22,
-    fontWeight: "900",
-  },
-  panelBody: {
-    color: colors.parchmentMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  metaStrip: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  metaPill: {
-    backgroundColor: colors.panelRaised,
-    color: colors.parchment,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    overflow: "hidden",
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  cardsScroller: {
-    flexGrow: 0,
-  },
-  cardsContent: {
-    gap: 12,
-    paddingBottom: 6,
-  },
-  emptyBox: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    backgroundColor: colors.panelRaised,
-    padding: 18,
-    gap: 6,
-  },
-  emptyTitle: {
-    color: colors.parchment,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  emptyBody: {
-    color: colors.parchmentMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-});
