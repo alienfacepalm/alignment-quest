@@ -4,13 +4,23 @@
   },
   "build": {
     "development": {
+      "env": {
+        "EXPO_APPLE_TEAM_ID": "2XGSHRV8NZ"
+      },
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "env": {
+        "EXPO_APPLE_TEAM_ID": "2XGSHRV8NZ"
+      },
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_APPLE_TEAM_ID": "2XGSHRV8NZ"
+      }
+    }
   },
   "submit": {
     "production": {}

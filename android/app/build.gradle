@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.alienfacepalm.allignmentdraft'
+    namespace 'com.alienfacepalm.allignmentquest'
     defaultConfig {
-        applicationId 'com.alienfacepalm.allignmentdraft'
+        applicationId 'com.alienfacepalm.allignmentquest'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
@@ -45,6 +45,29 @@ export function DeckFanCard({
   const transX = useSharedValue(0);
   const transY = useSharedValue(0);
   const dragging = useSharedValue(0);
+  /**
+   * Finger position in window space: `measureInWindow` + local (x,y) aligns with board cell
+   * `measureInWindow` when the card uses Reanimated translate (RNGH recommends local x/y over absolute* then).
+   */
+  const dragSurfaceRef = useRef<View | null>(null);
+
+  const finishDrag = useCallback(
+    (localX: number, localY: number, absX: number, absY: number) => {
+      if (Platform.OS === "web") {
+        onDragEnd(absX, absY);
+        return;
+      }
+      const node = dragSurfaceRef.current;
+      if (!node) {
+        onDragEnd(absX, absY);
+        return;
+      }
+      node.measureInWindow((sx: number, sy: number) => {
+        onDragEnd(sx + localX, sy + localY);
+      });
+    },
+    [onDragEnd],
+  );
 
   const pan = Gesture.Pan()
     .minDistance(10)
@@ -57,7 +80,7 @@ export function DeckFanCard({
       transY.value = e.translationY;
     })
     .onEnd((e) => {
-      runOnJS(onDragEnd)(e.absoluteX, e.absoluteY);
+      runOnJS(finishDrag)(e.x, e.y, e.absoluteX, e.absoluteY);
       transX.value = withSpring(0, { damping: 16, stiffness: 220 });
       transY.value = withSpring(0, { damping: 16, stiffness: 220 });
       dragging.value = withTiming(0, { duration: 160 });
@@ -95,6 +118,8 @@ export function DeckFanCard({
     >
       <GestureDetector gesture={gesture}>
         <Animated.View
+          ref={dragSurfaceRef as React.Ref<View>}
+          collapsable={false}
           accessible
           accessibilityRole="button"
           accessibilityLabel={`${person.name}. Tap to select, or drag onto the board.`}

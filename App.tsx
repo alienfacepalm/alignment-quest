@@ -23,6 +23,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
+import { Plus } from "lucide-react-native";
+import Svg, { Rect } from "react-native-svg";
 
 import { getOpenAiApiKey } from "./src/config/openai";
 import { getXaiApiKey } from "./src/config/xai";
@@ -52,6 +54,10 @@ const CONJURE_PREVIEW_SIGIL = 50;
 
 const columnLabels = ["Lawful", "Neutral", "Chaotic"] as const;
 const rowLabels = ["Good", "Neutral", "Evil"] as const;
+
+/** Empty slots: one tint for border + plus (Android `borderStyle: dashed` on views is unreliable). */
+const BOARD_EMPTY_SLOT_STROKE = "rgba(152, 164, 198, 0.78)";
+const BOARD_EMPTY_SLOT_BG = "rgba(255, 255, 255, 0.042)";
 
 const SCROLL_HORIZONTAL_PAD = 32;
 const BOARD_BODY_GAP = 10;
@@ -85,6 +91,32 @@ const ALIGNMENT_ROWS: TAlignmentKey[][] = [
   ["lawful-neutral", "true-neutral", "chaotic-neutral"],
   ["lawful-evil", "neutral-evil", "chaotic-evil"],
 ];
+
+function DashedCellOutline({ size, color }: { size: number; color: string }) {
+  const stroke = 2;
+  const inset = stroke / 2;
+  const innerW = Math.max(0, size - stroke);
+  const innerH = Math.max(0, size - stroke);
+  const rx = Math.min(18, size / 2 - stroke);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+      <Svg width={size} height={size}>
+        <Rect
+          x={inset}
+          y={inset}
+          width={innerW}
+          height={innerH}
+          rx={rx}
+          ry={rx}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray="6 5"
+        />
+      </Svg>
+    </View>
+  );
+}
 
 function ConjureLoader({ label }: { label: string }) {
   const a = useSharedValue(0);
@@ -384,7 +416,7 @@ function App() {
     const cell = Math.max(48, Math.min(maxCell, availableCell));
     const gridWidth = cell * 3 + cellGap * 2;
     const boardWidth = rowLabelWidth + BOARD_BODY_GAP + gridWidth;
-    const sigilSize = Math.round(Math.min(isTablet ? 72 : 54, cell * 0.58));
+    const sigilSize = Math.round(Math.min(isTablet ? 68 : 50, cell * 0.52));
     return { rowLabelWidth, cell, cellGap, gridWidth, boardWidth, sigilSize };
   }, [width, insets.left, insets.right, isTablet]);
 
@@ -478,19 +510,24 @@ function App() {
   }, []);
 
   const handleDeckDragEnd = useCallback(
-    (personId: string) => (absoluteX: number, absoluteY: number) => {
+    (personId: string) => (windowX: number, windowY: number) => {
       setScrollLocked(false);
-      void measureAllCells().then(() => {
-        const hit = hitTest(absoluteX, absoluteY);
-        if (hit) {
-          commitPlacement(personId, hit);
-          void playGameSfx("place");
-          hapticSuccess();
-        } else {
-          triggerDeckMiss();
-          void playGameSfx("tap");
-          hapticError();
-        }
+      const settleAndHit = () => {
+        void measureAllCells().then(() => {
+          const hit = hitTest(windowX, windowY);
+          if (hit) {
+            commitPlacement(personId, hit);
+            void playGameSfx("place");
+            hapticSuccess();
+          } else {
+            triggerDeckMiss();
+            void playGameSfx("tap");
+            hapticError();
+          }
+        });
+      };
+      requestAnimationFrame(() => {
+        requestAnimationFrame(settleAndHit);
       });
     },
     [measureAllCells, hitTest, commitPlacement, triggerDeckMiss],
@@ -826,129 +863,140 @@ function App() {
           <View style={styles.sectionStack}>
             <View style={styles.boardWrap}>
               <View style={[styles.boardFrame, { width: boardLayout.boardWidth }]}>
-                <View style={[styles.columnHeaderRow, { paddingLeft: boardLayout.rowLabelWidth + BOARD_BODY_GAP }]}>
-                  <View style={[styles.boardHeaderCells, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
-                    {columnLabels.map((label) => (
-                      <Text key={label} style={[styles.axisLabelColumn, { width: boardLayout.cell }]}>
-                        {label}
-                      </Text>
-                    ))}
-                  </View>
-                </View>
-
-                {ALIGNMENT_ROWS.map((rowAlignments, rowIndex) => (
-                  <View key={rowLabels[rowIndex]} style={[styles.boardBodyRow, { gap: BOARD_BODY_GAP }]}>
-                    <Text
-                      style={[styles.axisLabelRow, { width: boardLayout.rowLabelWidth }]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.75}
-                    >
-                      {rowLabels[rowIndex]}
-                    </Text>
-                    <View style={[styles.boardGridRow, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
-                      {rowAlignments.map((alignment) => {
-                        const personId = currentPlacements[alignment];
-                        const person = personId ? peopleById[personId] : null;
-                        const submittedPersonId = submittedPlacements?.[alignment] ?? null;
-                        const guessedCorrectly =
-                          phase === "revealed" && submittedPersonId === board.answerKey[alignment];
-
-                        return (
-                          <View
-                            key={alignment}
-                            ref={(el) => {
-                              cellMeasureRefs.current[alignment] = el;
-                            }}
-                            collapsable={false}
-                            style={{ width: boardLayout.cell, height: boardLayout.cell }}
-                          >
-                            <Pressable
-                              onPress={() => {
-                                if (selectedPersonId && phase === "sorting" && personId === selectedPersonId) {
-                                  handleClearCell(alignment);
-                                  return;
-                                }
-                                if (selectedPersonId && phase === "sorting") {
-                                  handlePlaceSelected(alignment);
-                                  return;
-                                }
-                                if (personId) {
-                                  handleSelectPerson(personId);
-                                }
-                              }}
-                              style={({ pressed }) => [
-                                styles.boardCell,
-                                { width: boardLayout.cell, height: boardLayout.cell },
-                                person ? styles.boardCellFilled : styles.boardCellEmpty,
-                                !person
-                                  ? {
-                                      borderColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}dd`,
-                                      backgroundColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}22`,
-                                    }
-                                  : undefined,
-                                person
-                                  ? {
-                                      borderStyle: "solid",
-                                      borderColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}ee`,
-                                    }
-                                  : undefined,
-                                phase === "revealed" && submittedPersonId && guessedCorrectly
-                                  ? styles.boardCellCorrect
-                                  : undefined,
-                                phase === "revealed" && submittedPersonId && !guessedCorrectly
-                                  ? styles.boardCellMiss
-                                  : undefined,
-                                pressed ? styles.pressed : undefined,
-                              ]}
-                            >
-                              {person ? (
-                                <View style={styles.boardCardFill}>
-                                  <SigilPortrait
-                                    personId={person.id}
-                                    accent={person.accent}
-                                    size={boardLayout.sigilSize}
-                                    accessibilityLabel={person.name}
-                                    portraitUri={person.portraitUri}
-                                  />
-                                  <Text style={styles.boardCardName} numberOfLines={2}>
-                                    {person.name}
-                                  </Text>
-                                  <Text style={styles.boardCardRole} numberOfLines={1}>
-                                    {person.role}
-                                  </Text>
-                                  {phase === "revealed" ? (
-                                    <Text style={styles.boardCardReveal}>
-                                      {submittedPersonId && guessedCorrectly ? "Match" : "—"}
-                                    </Text>
-                                  ) : null}
-                                </View>
-                              ) : (
-                                <View
-                                  style={[
-                                    styles.boardCellEmptyState,
-                                    {
-                                      shadowColor: ALIGNMENT_CELL_CHART_COLORS[alignment],
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.boardCellPlus,
-                                      { color: ALIGNMENT_CELL_CHART_COLORS[alignment] },
-                                    ]}
-                                  >
-                                    +
-                                  </Text>
-                                </View>
-                              )}
-                            </Pressable>
-                          </View>
-                        );
-                      })}
+                <View style={[styles.boardGridBlock, { gap: boardLayout.cellGap }]}>
+                  <View
+                    style={[
+                      styles.columnHeaderRow,
+                      { paddingLeft: boardLayout.rowLabelWidth + BOARD_BODY_GAP, marginBottom: 4 },
+                    ]}
+                  >
+                    <View style={[styles.boardHeaderCells, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
+                      {columnLabels.map((label) => (
+                        <Text key={label} style={[styles.axisLabelColumn, { width: boardLayout.cell }]}>
+                          {label}
+                        </Text>
+                      ))}
                     </View>
                   </View>
-                ))}
+
+                  {ALIGNMENT_ROWS.map((rowAlignments, rowIndex) => (
+                    <View key={rowLabels[rowIndex]} style={[styles.boardBodyRow, { gap: BOARD_BODY_GAP }]}>
+                      <View
+                        style={[
+                          styles.axisLabelRowWrap,
+                          { width: boardLayout.rowLabelWidth, height: boardLayout.cell },
+                        ]}
+                      >
+                        <Text style={styles.axisLabelRow} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                          {rowLabels[rowIndex]}
+                        </Text>
+                      </View>
+                      <View style={[styles.boardGridRow, { width: boardLayout.gridWidth, gap: boardLayout.cellGap }]}>
+                        {rowAlignments.map((alignment) => {
+                          const personId = currentPlacements[alignment];
+                          const person = personId ? peopleById[personId] : null;
+                          const submittedPersonId = submittedPlacements?.[alignment] ?? null;
+                          const guessedCorrectly =
+                            phase === "revealed" && submittedPersonId === board.answerKey[alignment];
+
+                          return (
+                            <View
+                              key={alignment}
+                              ref={(el) => {
+                                cellMeasureRefs.current[alignment] = el;
+                              }}
+                              collapsable={false}
+                              style={{
+                                width: boardLayout.cell,
+                                height: boardLayout.cell,
+                                overflow: "hidden",
+                              }}
+                            >
+                              <Pressable
+                                onPress={() => {
+                                  if (selectedPersonId && phase === "sorting" && personId === selectedPersonId) {
+                                    handleClearCell(alignment);
+                                    return;
+                                  }
+                                  if (selectedPersonId && phase === "sorting") {
+                                    handlePlaceSelected(alignment);
+                                    return;
+                                  }
+                                  if (personId) {
+                                    handleSelectPerson(personId);
+                                  }
+                                }}
+                                style={({ pressed }) => [
+                                  styles.boardCell,
+                                  {
+                                    width: boardLayout.cell,
+                                    height: boardLayout.cell,
+                                    overflow: "hidden",
+                                  },
+                                  person ? styles.boardCellFilled : styles.boardCellEmpty,
+                                  !person
+                                    ? {
+                                        backgroundColor: BOARD_EMPTY_SLOT_BG,
+                                      }
+                                    : undefined,
+                                  person
+                                    ? {
+                                        borderStyle: "solid",
+                                        borderColor: `${ALIGNMENT_CELL_CHART_COLORS[alignment]}ee`,
+                                      }
+                                    : undefined,
+                                  phase === "revealed" && submittedPersonId && guessedCorrectly
+                                    ? styles.boardCellCorrect
+                                    : undefined,
+                                  phase === "revealed" && submittedPersonId && !guessedCorrectly
+                                    ? styles.boardCellMiss
+                                    : undefined,
+                                  pressed ? styles.pressed : undefined,
+                                ]}
+                              >
+                                {person ? (
+                                  <View style={styles.boardCardFill}>
+                                    <SigilPortrait
+                                      personId={person.id}
+                                      accent={person.accent}
+                                      size={boardLayout.sigilSize}
+                                      accessibilityLabel={person.name}
+                                      portraitUri={person.portraitUri}
+                                    />
+                                    <Text style={styles.boardCardName} numberOfLines={2}>
+                                      {person.name}
+                                    </Text>
+                                    <Text style={styles.boardCardRole} numberOfLines={1}>
+                                      {person.role}
+                                    </Text>
+                                    {phase === "revealed" ? (
+                                      <Text style={styles.boardCardReveal}>
+                                        {submittedPersonId && guessedCorrectly ? "Match" : "—"}
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                ) : (
+                                  <>
+                                    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+                                      <DashedCellOutline size={boardLayout.cell} color={BOARD_EMPTY_SLOT_STROKE} />
+                                    </View>
+                                    <View style={styles.boardCellEmptyPlusWrap}>
+                                      <Plus
+                                        color={BOARD_EMPTY_SLOT_STROKE}
+                                        size={Math.max(18, Math.round(boardLayout.cell * 0.26))}
+                                        strokeWidth={2.5}
+                                      />
+                                    </View>
+                                  </>
+                                )}
+                              </Pressable>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+                </View>
               </View>
             </View>
 
@@ -1695,20 +1743,36 @@ const styles = StyleSheet.create({
   },
   boardWrap: {
     alignItems: "center",
+    marginTop: 28,
+    marginBottom: 4,
   },
   boardFrame: {
     alignSelf: "center",
     maxWidth: 760,
-    gap: 12,
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 0,
   },
   columnHeaderRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
+    minHeight: 30,
+    paddingTop: 4,
   },
   boardHeaderCells: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  boardGridBlock: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderRadius: 20,
+    backgroundColor: "rgba(8, 10, 22, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   boardBodyRow: {
     flexDirection: "row",
@@ -1716,7 +1780,12 @@ const styles = StyleSheet.create({
   },
   boardGridRow: {
     flexDirection: "row",
-    alignItems: "stretch",
+    alignItems: "center",
+  },
+  axisLabelRowWrap: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingRight: 4,
   },
   axisLabelColumn: {
     color: "#7180a2",
@@ -1733,17 +1802,16 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
     textAlign: "right",
-    paddingRight: 2,
+    width: "100%",
   },
   boardCell: {
     borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 3,
+    borderWidth: 2,
   },
   boardCellEmpty: {
-    borderColor: "rgba(255,255,255,0.22)",
-    borderStyle: "solid",
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderWidth: 0,
+    backgroundColor: "transparent",
   },
   boardCellFilled: {
     borderColor: "rgba(83, 167, 255, 0.36)",
@@ -1755,29 +1823,22 @@ const styles = StyleSheet.create({
   boardCellMiss: {
     borderColor: colors.evil,
   },
-  boardCellEmptyState: {
+  boardCellEmptyPlusWrap: {
     flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  boardCellPlus: {
-    fontSize: 48,
-    fontWeight: "900",
-    lineHeight: 52,
-    opacity: 1,
-    textShadowColor: "rgba(255,255,255,0.38)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 8,
   },
   boardCardFill: {
     flex: 1,
+    width: "100%",
+    minHeight: 0,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    padding: 8,
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    overflow: "hidden",
   },
   boardCardName: {
     color: colors.parchment,

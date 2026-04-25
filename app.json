@@ -12,10 +12,11 @@
       }
     },
     "android": {
-      "package": "com.alienfacepalm.allignmentdraft"
+      "package": "com.alienfacepalm.allignmentquest"
     },
     "ios": {
-      "bundleIdentifier": "com.alienfacepalm.allignmentdraft",
+      "bundleIdentifier": "com.alienfacepalm.allignmentquest",
+      "appleTeamId": "2XGSHRV8NZ",
       "supportsTablet": true
     },
     "web": {

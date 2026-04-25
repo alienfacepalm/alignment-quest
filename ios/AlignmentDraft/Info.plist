@@ -27,7 +27,7 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.alienfacepalm.allignmentdraft</string>
+				<string>com.alienfacepalm.allignmentquest</string>
 			</array>
 		</dict>
 	</array>

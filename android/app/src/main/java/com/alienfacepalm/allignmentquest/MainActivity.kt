@@ -1,4 +1,4 @@
-package com.alienfacepalm.allignmentdraft
+package com.alienfacepalm.allignmentquest
 
 import android.os.Build
 import android.os.Bundle
